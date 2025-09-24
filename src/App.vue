@@ -63,8 +63,8 @@ const isBot = () => {
     console.log('Bot detected: User agent contains "headless"')
     return true
   }
-  if (navigator.webdriver !== undefined) {
-    console.log('Bot detected: webdriver detected')
+  if (navigator.webdriver === true) {
+    console.log('Bot detected: webdriver is active')
     return true
   }
   if (window.callPhantom) {
