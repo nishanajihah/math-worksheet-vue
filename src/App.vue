@@ -5,8 +5,8 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
 // URL of our backend API
-const API_URL_SCORES = 'http://localhost:3000/api/scores';
-const API_URL_QUESTIONS = 'http://localhost:3000/api/questions';
+const API_URL_SCORES = 'https://math-worksheet-backend.vercel.app/api/scores';
+const API_URL_QUESTIONS = 'https://math-worksheet-backend.vercel.app/api/questions';
 
 // Reactive state to hold the user's data and app status.
 const questions = ref([]);
