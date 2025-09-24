@@ -22,19 +22,51 @@ const highScoresLoaded = ref(false);
 const isUserInteracting = ref(false);
 const isLoadingQuestions = ref(false);
 const isLoadingHighScores = ref(false);
+const isSubmittingScore = ref(false);
+
+// Cache for responses
+const questionsCache = ref(null);
+const highScoresCache = ref(null);
+const cacheTimestamp = ref(null);
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Check if cache is still valid
+const isCacheValid = (timestamp) => {
+  return timestamp && (Date.now() - timestamp) < CACHE_DURATION;
+};
 
 // Fetch the questions only when user interacts
 const fetchQuestions = async () => {
   if (questionsLoaded.value || isLoadingQuestions.value) return; // Don't fetch if already loaded or loading
 
+  // Check cache first
+  if (questionsCache.value && isCacheValid(cacheTimestamp.value)) {
+    questions.value = questionsCache.value;
+    questionsLoaded.value = true;
+    return;
+  }
+
   isLoadingQuestions.value = true;
   try {
-    const response = await axios.get(API_URL_QUESTIONS);
+    // Add timeout to prevent hanging requests (10 seconds)
+    const response = await Promise.race([
+      axios.get(API_URL_QUESTIONS),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      )
+    ]);
+
     questions.value = response.data;
+    questionsCache.value = response.data; // Cache the response
+    cacheTimestamp.value = Date.now();
     questionsLoaded.value = true;
   } catch (error) {
     console.error('Failed to fetch questions:', error);
-    message.value = "Failed to load questions. Click to retry.";
+    if (error.message === 'Request timeout') {
+      message.value = "Request timed out. Please check your connection and try again.";
+    } else {
+      message.value = "Failed to load questions. Click to retry.";
+    }
   } finally {
     isLoadingQuestions.value = false;
   }
@@ -44,14 +76,34 @@ const fetchQuestions = async () => {
 const fetchHighScores = async () => {
   if (highScoresLoaded.value || isLoadingHighScores.value) return; // Don't fetch if already loaded or loading
 
+  // Check cache first (shorter cache for leaderboard - 2 minutes)
+  if (highScoresCache.value && cacheTimestamp.value &&
+      (Date.now() - cacheTimestamp.value) < (2 * 60 * 1000)) {
+    highScores.value = highScoresCache.value;
+    highScoresLoaded.value = true;
+    return;
+  }
+
   isLoadingHighScores.value = true;
   try {
-    const response = await axios.get(API_URL_SCORES);
+    // Add timeout to prevent hanging requests (10 seconds)
+    const response = await Promise.race([
+      axios.get(API_URL_SCORES),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      )
+    ]);
+
     highScores.value = response.data;
+    highScoresCache.value = response.data; // Cache the response
     highScoresLoaded.value = true;
   } catch (error) {
     console.error('Failed to fetch high scores:', error);
-    message.value = "Failed to load high scores. Click to retry.";
+    if (error.message === 'Request timeout') {
+      message.value = "Request timed out. Please check your connection and try again.";
+    } else {
+      message.value = "Failed to load high scores. Click to retry.";
+    }
   } finally {
     isLoadingHighScores.value = false;
   }
@@ -59,6 +111,8 @@ const fetchHighScores = async () => {
 
 // Manual refresh high scores (force reload)
 const refreshHighScores = async () => {
+  // Clear cache to force fresh data
+  highScoresCache.value = null;
   highScoresLoaded.value = false;
   await fetchHighScores();
 };
@@ -84,9 +138,24 @@ const handleUserInteraction = async () => {
 
 // Calculate the score and submit it to the backend
 const calculateScore = async () => {
-  // Check is user name is written
-  if (!userName.value) {
+  // Prevent double-clicks with loading state
+  if (isSubmittingScore.value) return;
+
+  // Validate user name
+  if (!userName.value || userName.value.trim().length === 0) {
     message.value = "Please enter your name before submitting.";
+    return;
+  }
+
+  // Validate name length and characters
+  const trimmedName = userName.value.trim();
+  if (trimmedName.length < 2) {
+    message.value = "Name must be at least 2 characters long.";
+    return;
+  }
+
+  if (trimmedName.length > 50) {
+    message.value = "Name must be less than 50 characters.";
     return;
   }
 
@@ -99,17 +168,36 @@ const calculateScore = async () => {
     return;
   }
 
+  // Validate that all answers are valid
+  const validAnswers = Object.values(userAnswers.value).every(answer =>
+    answer !== null && answer !== undefined && answer !== ''
+  );
+
+  if (!validAnswers) {
+    message.value = "Please ensure all answers are properly selected.";
+    return;
+  }
+
+  isSubmittingScore.value = true;
+
   // Submit name and score to backend
   try {
-    const response = await axios.post(API_URL_SCORES, {
-      name: userName.value,
-      userAnswers: userAnswers.value
-    });
+    // Add timeout to prevent hanging requests (15 seconds for submission)
+    const response = await Promise.race([
+      axios.post(API_URL_SCORES, {
+        name: trimmedName,
+        userAnswers: userAnswers.value
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 15000)
+      )
+    ]);
 
     score.value = response.data.score;
     message.value = response.data.message;
 
-    // Force refresh high scores after score submission
+    // Clear high scores cache and force refresh after score submission
+    highScoresCache.value = null;
     highScoresLoaded.value = false;
     await fetchHighScores();
 
@@ -126,7 +214,13 @@ const calculateScore = async () => {
 
   } catch (error) {
     console.error('Failed to submit score:', error);
-    message.value = "Failed to submit score. Please try again.";
+    if (error.message === 'Request timeout') {
+      message.value = "Submission timed out. Please check your connection and try again.";
+    } else {
+      message.value = "Failed to submit score. Please try again.";
+    }
+  } finally {
+    isSubmittingScore.value = false;
   }
 };
 
@@ -167,10 +261,10 @@ onMounted(() => {
         <div class="unified-controls-container">
           <div class="controls-left">
             <div class="control-buttons">
-              <button @click="calculateScore" class="glass-btn primary-action-btn">
-                <span class="btn-text">Submit Answers</span>
+              <button @click="calculateScore" class="glass-btn primary-action-btn" :disabled="isSubmittingScore">
+                <span class="btn-text">{{ isSubmittingScore ? 'Submitting...' : 'Submit Answers' }}</span>
               </button>
-              <button @click="resetWorksheet" class="glass-btn secondary-action-btn">
+              <button @click="resetWorksheet" class="glass-btn secondary-action-btn" :disabled="isSubmittingScore">
                 <span class="btn-text">Reset All</span>
               </button>
             </div>
