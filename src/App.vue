@@ -25,6 +25,7 @@ const criticalError = ref(false)
 
 // Security and activation
 const hasRealUser = ref(false)
+const quizStarted = ref(false)
 const honeypot = ref('')
 
 // Rate limiting
@@ -49,6 +50,8 @@ const isBot = () => {
 // APP ACTIVATION
 // ================================
 const activateApp = () => {
+  console.log('Start Quiz button clicked!')
+
   // Security checks
   if (isBot()) {
     console.log('App activation blocked - bot detected')
@@ -62,7 +65,8 @@ const activateApp = () => {
 
   // Activate application
   hasRealUser.value = true
-  console.log('User activated app - loading data')
+  quizStarted.value = true
+  console.log('Quiz started - loading data')
 
   // Load initial data
   loadInitialData()
@@ -72,6 +76,12 @@ const activateApp = () => {
 const loadInitialData = async () => {
   // Prevent duplicate loading
   if (dataLoaded.value || isLoading.value) return
+
+  // STRICT: Must have clicked Start Quiz button
+  if (!quizStarted.value) {
+    console.log('API call BLOCKED - Start Quiz not clicked yet')
+    return
+  }
 
   // Security checks
   if (isBot()) {
@@ -140,6 +150,12 @@ const loadInitialData = async () => {
 const calculateScore = async () => {
   // Prevent duplicate submissions
   if (isSubmitting.value) return
+
+  // STRICT: Must have started quiz first
+  if (!quizStarted.value) {
+    console.log('Submission BLOCKED - Start Quiz not clicked yet')
+    return
+  }
 
   // Security checks
   if (isBot()) {
@@ -230,6 +246,12 @@ const resetWorksheet = () => {
 }
 
 const refreshHighScores = async () => {
+  // STRICT: Must have started quiz first
+  if (!quizStarted.value) {
+    console.log('High scores refresh BLOCKED - Start Quiz not clicked yet')
+    return
+  }
+
   // Security checks
   if (isBot()) {
     console.log('High scores refresh blocked - bot detected')
@@ -373,8 +395,8 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Waiting for User Interaction -->
-        <div v-if="!hasRealUser && !isLoading" class="interaction-prompt">
+        <!-- Waiting for Start Quiz Button Click -->
+        <div v-if="!quizStarted && !isLoading" class="interaction-prompt">
           <div class="prompt-text">Welcome! Click to start your math challenge</div>
           <button @click="activateApp" class="glass-btn start-btn">Start Quiz</button>
         </div>
@@ -442,9 +464,9 @@ onMounted(() => {
             </button>
           </div>
 
-          <!-- Waiting for User Interaction -->
-          <div v-if="!hasRealUser" class="empty-leaderboard">
-            <div class="empty-text">🏆 Leaderboard</div>
+          <!-- Waiting for Quiz Start -->
+          <div v-if="!quizStarted" class="empty-leaderboard">
+            <div class="empty-text">Leaderboard</div>
             <div class="empty-subtext">Start the quiz to see high scores!</div>
           </div>
 
