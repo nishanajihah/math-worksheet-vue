@@ -6,6 +6,19 @@ import axios from 'axios';
 const API_URL_SCORES = 'https://math-worksheet-backend.vercel.app/api/scores';
 const API_URL_QUESTIONS = 'https://math-worksheet-backend.vercel.app/api/questions';
 
+// Global bot protection - block ALL API calls if bot detected
+const isBot = () => {
+  const ua = navigator.userAgent.toLowerCase();
+  return ua.includes('bot') ||
+         ua.includes('crawler') ||
+         ua.includes('spider') ||
+         ua.includes('scraper') ||
+         ua.includes('headless') ||
+         navigator.webdriver !== undefined ||
+         window.callPhantom ||
+         window._phantom;
+};
+
 // Core data
 const questions = ref([]);
 const userAnswers = ref({});
@@ -30,6 +43,12 @@ let lastApiCall = 0;
 // SOLUTION 1: Only load data when real user interaction is detected
 const loadInitialData = async () => {
   if (dataLoaded.value || isLoading.value) return;
+
+  // Global bot check
+  if (isBot()) {
+    console.log('🤖 API call blocked - bot detected');
+    return;
+  }
 
   // Only load if user has actually interacted with the page
   if (!hasRealUser.value) {
@@ -92,15 +111,22 @@ const loadInitialData = async () => {
 const calculateScore = async () => {
   if (isSubmitting.value) return;
 
+  // Global bot check
+  if (isBot()) {
+    console.log('🤖 Submission blocked - bot detected');
+    return;
+  }
+
   // Honeypot protection - block bots
   if (honeypot.value) {
     console.log('🍯 Bot submission blocked via honeypot');
     return;
   }
 
-  // Ensure user interaction is detected
+  // Block if no real user interaction detected
   if (!hasRealUser.value) {
-    detectUserInteraction();
+    console.log('🚫 Submission blocked - no verified user interaction');
+    return;
   }
 
   // Check if backend is available
@@ -175,9 +201,16 @@ const resetWorksheet = () => {
 
 // SOLUTION 5: Manual refresh only when user clicks (rare)
 const refreshHighScores = async () => {
-  // Ensure user interaction is detected
+  // Global bot check
+  if (isBot()) {
+    console.log('🤖 High scores refresh blocked - bot detected');
+    return;
+  }
+
+  // Block if no real user interaction detected
   if (!hasRealUser.value) {
-    detectUserInteraction();
+    console.log('🚫 High scores refresh blocked - no verified user interaction');
+    return;
   }
 
   if (!backendAvailable.value) {
@@ -211,25 +244,15 @@ const reloadPage = () => {
 const detectUserInteraction = () => {
   if (hasRealUser.value) return; // Already detected
 
-  // Honeypot check - bots often fill hidden fields
-  if (honeypot.value) {
-    console.log('🍯 Bot detected via honeypot - blocking API calls');
+  // Global bot check first
+  if (isBot()) {
+    console.log('🤖 User interaction blocked - bot detected');
     return;
   }
 
-  // Enhanced bot detection
-  const userAgent = navigator.userAgent.toLowerCase();
-  const isLikelyBot = userAgent.includes('bot') ||
-                     userAgent.includes('crawler') ||
-                     userAgent.includes('spider') ||
-                     userAgent.includes('scraper') ||
-                     userAgent.includes('headless') ||
-                     userAgent.includes('phantom') ||
-                     userAgent.includes('selenium') ||
-                     navigator.webdriver !== undefined; // Headless browsers
-
-  if (isLikelyBot) {
-    console.log('🤖 Bot detected via User-Agent - blocking API calls');
+  // Honeypot check - bots often fill hidden fields
+  if (honeypot.value) {
+    console.log('🍯 Bot detected via honeypot - blocking API calls');
     return;
   }
 
@@ -240,9 +263,7 @@ const detectUserInteraction = () => {
       !window.innerWidth) {
     console.log('🚫 Invalid browser environment - blocking API calls');
     return;
-  }
-
-  hasRealUser.value = true;
+  }  hasRealUser.value = true;
   userInteracted.value = true;
   console.log('👤 Real user confirmed - enabling API calls');
 
@@ -265,22 +286,25 @@ const checkRealUserInteraction = (eventType) => {
   if (eventType === 'mousemove') hasMouseMoved = true;
   if (eventType === 'click') hasClicked = true;
 
-  // Require at least 2 different types of interaction OR mouse movement
-  const isRealUser = interactionCount >= 2 ||
-                    hasMouseMoved ||
-                    (hasClicked && interactionCount >= 1);
+  // MUCH MORE STRICT: Require BOTH mouse movement AND a click/key event
+  // This eliminates most bot/automated interactions
+  const isRealUser = hasMouseMoved &&
+                    (hasClicked || eventType === 'keydown') &&
+                    interactionCount >= 3;
 
   if (isRealUser) {
+    console.log(`✅ Real user confirmed after ${interactionCount} interactions`);
     detectUserInteraction();
   } else {
-    console.log(`⏳ Interaction ${interactionCount} (${eventType}) - waiting for more confirmation`);
+    console.log(`⏳ Interaction ${interactionCount} (${eventType}) - need mouse movement + click/key + 3+ events`);
   }
 };
 
 const addInteractionListeners = () => {
+  // More selective events - focus on user-driven interactions
   const events = [
-    'click', 'keydown', 'mousemove', 'touchstart', 'scroll',
-    'mousedown', 'mouseup', 'touchend', 'focus', 'blur'
+    'click', 'keydown', 'mousemove', 'mousedown', 'touchstart'
+    // Removed: scroll, mouseup, touchend, focus, blur (too easily faked)
   ];
 
   events.forEach(eventType => {
@@ -319,13 +343,32 @@ const handleVisibilityChange = () => {
 onMounted(() => {
   console.log('🚀 App mounted - waiting for user interaction...');
 
+  // Comprehensive bot detection on mount
+  const userAgent = navigator.userAgent.toLowerCase();
+  const hasBot = userAgent.includes('bot') ||
+                 userAgent.includes('crawler') ||
+                 userAgent.includes('spider') ||
+                 userAgent.includes('scraper') ||
+                 userAgent.includes('headless') ||
+                 userAgent.includes('phantom') ||
+                 userAgent.includes('selenium') ||
+                 navigator.webdriver !== undefined ||
+                 window.navigator.webdriver ||
+                 window.callPhantom ||
+                 window._phantom ||
+                 window.Buffer !== undefined; // Node.js buffer in browser
+
+  if (hasBot) {
+    console.log('🤖 Bot/automated browser detected on mount - API calls permanently disabled');
+    return; // Don't even add event listeners
+  }
+
   // Add event listeners to detect real users
   addInteractionListeners();
 
   // Also listen for visibility changes
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
-  // REMOVED: No automatic timeout - only real user interaction triggers API calls
   console.log('⏸️ Waiting for genuine user interaction - no automatic triggers');
 });
 </script>
