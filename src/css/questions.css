@@ -101,3 +101,46 @@
   grid-template-columns: 1fr;
   gap: 1rem;
 }
+
+/* User Interaction Prompt */
+.interaction-prompt {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: linear-gradient(135deg, var(--hover-sage-light), var(--hover-cream-light));
+  border-radius: 15px;
+  margin: 2rem 0;
+}
+
+.prompt-text {
+  font-size: 1.3rem;
+  color: var(--text-dark);
+  margin-bottom: 2rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px var(--shadow-white-soft);
+}
+
+.start-btn {
+  background: linear-gradient(135deg, var(--color-brown), var(--color-brown-light));
+  border: 2px solid var(--color-brown);
+  color: white;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 15px var(--shadow-brown);
+  animation: pulse-glow 2s infinite;
+}
+
+.start-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px var(--hover-brown);
+  background: linear-gradient(135deg, var(--color-brown-light), var(--color-brown));
+}
+
+@keyframes pulse-glow {
+  0% { box-shadow: 0 4px 15px var(--shadow-brown); }
+  50% { box-shadow: 0 6px 25px var(--hover-brown); }
+  100% { box-shadow: 0 4px 15px var(--shadow-brown); }
+}

@@ -20,10 +20,20 @@ const isSubmitting = ref(false);
 const dataLoaded = ref(false);
 const backendAvailable = ref(true);
 const criticalError = ref(false);
+const userInteracted = ref(false);
 
-// SOLUTION 1: Single API call on mount (no interaction detection)
+// User interaction detection
+const hasRealUser = ref(false);
+
+// SOLUTION 1: Only load data when real user interaction is detected
 const loadInitialData = async () => {
   if (dataLoaded.value || isLoading.value) return;
+
+  // Only load if user has actually interacted with the page
+  if (!hasRealUser.value) {
+    console.log('⏸️ API call skipped - no user interaction detected');
+    return;
+  }
 
   isLoading.value = true;
 
@@ -71,6 +81,11 @@ const loadInitialData = async () => {
 // SOLUTION 2: Only submit when user actually submits
 const calculateScore = async () => {
   if (isSubmitting.value) return;
+
+  // Ensure user interaction is detected
+  if (!hasRealUser.value) {
+    detectUserInteraction();
+  }
 
   // Check if backend is available
   if (!backendAvailable.value) {
@@ -144,6 +159,11 @@ const resetWorksheet = () => {
 
 // SOLUTION 5: Manual refresh only when user clicks (rare)
 const refreshHighScores = async () => {
+  // Ensure user interaction is detected
+  if (!hasRealUser.value) {
+    detectUserInteraction();
+  }
+
   if (!backendAvailable.value) {
     message.value = 'Service is currently unavailable. Please refresh the page to try again.';
     return;
@@ -171,10 +191,74 @@ const reloadPage = () => {
   window.location.reload();
 };
 
-// SOLUTION 6: Load data immediately on mount (no user interaction detection)
-onMounted(() => {
-  console.log('🚀 App mounted, loading data...');
+// Detect real user interactions (not bots/crawlers)
+const detectUserInteraction = () => {
+  if (hasRealUser.value) return; // Already detected
+
+  hasRealUser.value = true;
+  userInteracted.value = true;
+  console.log('👤 Real user detected - enabling API calls');
+
+  // Now load the data
   loadInitialData();
+
+  // Remove event listeners after first interaction
+  removeInteractionListeners();
+};
+
+// Add interaction event listeners
+let interactionListeners = [];
+
+const addInteractionListeners = () => {
+  const events = [
+    'click', 'keydown', 'mousemove', 'touchstart', 'scroll',
+    'mousedown', 'mouseup', 'touchend', 'focus', 'blur'
+  ];
+
+  events.forEach(eventType => {
+    const listener = () => detectUserInteraction();
+    document.addEventListener(eventType, listener, { passive: true, once: true });
+    interactionListeners.push({ eventType, listener });
+  });
+};
+
+const removeInteractionListeners = () => {
+  interactionListeners.forEach(({ eventType, listener }) => {
+    document.removeEventListener(eventType, listener);
+  });
+  interactionListeners = [];
+};
+
+// Also detect visibility change (user switching tabs/focus)
+const handleVisibilityChange = () => {
+  if (!document.hidden && !hasRealUser.value) {
+    // User came back to the tab - likely a real user
+    setTimeout(() => {
+      if (!document.hidden) {
+        detectUserInteraction();
+      }
+    }, 1000); // Wait 1 second to confirm they're staying
+  }
+};
+
+// SOLUTION 6: Only add event listeners on mount - NO automatic API calls
+onMounted(() => {
+  console.log('🚀 App mounted - waiting for user interaction...');
+
+  // Add event listeners to detect real users
+  addInteractionListeners();
+
+  // Also listen for visibility changes
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  // Safety timeout: if user stays on page for 5+ seconds without interacting,
+  // they're probably a real user just reading
+  setTimeout(() => {
+    if (!hasRealUser.value && !document.hidden) {
+      console.log('👤 User stayed on page - assuming real user');
+      detectUserInteraction();
+    }
+  }, 5000);
 });
 </script>
 
@@ -214,6 +298,8 @@ onMounted(() => {
                 class="glass-input"
                 placeholder="Enter your name..."
                 maxlength="50"
+                @focus="detectUserInteraction"
+                @input="detectUserInteraction"
               />
             </div>
           </div>
@@ -265,8 +351,14 @@ onMounted(() => {
           </div>
         </div>
 
+        <!-- Waiting for User Interaction -->
+        <div v-if="!hasRealUser && !isLoading" class="interaction-prompt">
+          <div class="prompt-text">👋 Welcome! Click anywhere to start your math challenge</div>
+          <button @click="detectUserInteraction" class="glass-btn start-btn">Start Quiz</button>
+        </div>
+
         <!-- Loading State -->
-        <div v-if="isLoading" class="loading-container">
+        <div v-else-if="isLoading" class="loading-container">
           <div class="loading-text">Loading math questions...</div>
         </div>
 
@@ -286,7 +378,7 @@ onMounted(() => {
               <button
                 v-for="(choice, choiceIndex) in questionObj.choices"
                 :key="choiceIndex"
-                @click="userAnswers[questionObj.id] = choice"
+                @click="userAnswers[questionObj.id] = choice; detectUserInteraction()"
                 class="choice-btn"
                 :class="{ selected: userAnswers[questionObj.id] === choice }"
               >
@@ -307,7 +399,7 @@ onMounted(() => {
         </div>
 
         <!-- Error State -->
-        <div v-else class="error-container">
+        <div v-else-if="hasRealUser" class="error-container">
           <div class="error-text">Failed to load questions</div>
           <button @click="reloadPage" class="glass-btn retry-btn refresh-page-btn">Refresh Page</button>
         </div>
@@ -328,8 +420,14 @@ onMounted(() => {
             </button>
           </div>
 
+          <!-- Waiting for User Interaction -->
+          <div v-if="!hasRealUser" class="empty-leaderboard">
+            <div class="empty-text">🏆 Leaderboard</div>
+            <div class="empty-subtext">Start the quiz to see high scores!</div>
+          </div>
+
           <!-- Empty or Loading Leaderboard -->
-          <div v-if="highScores.length === 0" class="empty-leaderboard">
+          <div v-else-if="highScores.length === 0" class="empty-leaderboard">
             <div class="empty-text">No high scores yet!</div>
             <div class="empty-subtext">Be the first to complete the challenge</div>
           </div>
