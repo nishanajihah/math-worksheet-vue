@@ -1,0 +1,57 @@
+/* ========================================
+   MAIN LAYOUT & GLASS COMPONENTS
+======================================== */
+/* Main grid layout & glass components */
+
+.main-grid {
+  flex: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  display: grid;
+  grid-template-columns: 4fr 1fr;
+  gap: 3rem;
+  align-items: start;
+}
+
+.glass-panel {
+  background: var(--bg-panel);
+  backdrop-filter: var(--blur-glass);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: 0 8px 32px var(--shadow-brown);
+  transition: var(--transition-smooth);
+}
+
+.glass-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px var(--hover-sage-light);
+}
+
+.glass-card {
+  background: var(--bg-panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-light);
+  border-radius: 15px;
+  padding: 1.5rem;
+  transition: var(--transition-smooth);
+}
+
+.glass-card:hover {
+  background: var(--bg-input);
+  border-color: var(--color-brown);
+  transform: translateY(-2px);
+}
+
+/* Desktop Layout Optimization */
+@media (min-width: 1025px) {
+  .main-grid > :first-child .glass-panel {
+    min-width: 800px;
+  }
+
+  .main-grid > :last-child {
+    max-width: 350px;
+    min-width: 280px;
+  }
+}

@@ -1,0 +1,115 @@
+/* ========================================
+   NAVIGATION & CONTROLS
+======================================== */
+/* Navigation bar & form controls */
+
+.glass-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg-panel);
+  backdrop-filter: var(--blur-glass);
+  border-bottom: 1px solid var(--border-light);
+  padding: 1rem 0;
+}
+
+.nav-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.unified-controls-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-panel);
+  backdrop-filter: var(--blur-glass);
+  border: 1px solid var(--border-light);
+  border-radius: 15px;
+  padding: 1rem;
+  box-shadow: 0 8px 32px var(--shadow-brown);
+}
+
+.controls-left, .controls-right {
+  display: flex;
+  align-items: center;
+}
+
+.controls-right {
+  min-width: 200px;
+}
+
+.name-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.input-label {
+  color: var(--text-medium);
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px var(--shadow-white-soft);
+}
+
+.glass-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  color: var(--text-dark);
+  font-size: 1rem;
+  transition: var(--transition-smooth);
+}
+
+.glass-input::placeholder {
+  color: var(--text-dark);
+  opacity: 0.7;
+}
+
+.glass-input:focus {
+  outline: none;
+  background: var(--bg-panel);
+  border-color: var(--color-brown);
+  box-shadow: 0 0 0 3px var(--hover-sage);
+}
+
+.control-buttons {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.glass-btn {
+  background: var(--bg-panel);
+  backdrop-filter: var(--blur-glass);
+  border: 2px solid var(--border-light);
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  color: var(--text-medium);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.primary-action-btn {
+  background: linear-gradient(135deg, var(--color-brown), var(--color-brown-light));
+  border-color: var(--color-brown);
+  color: white;
+}
+
+.primary-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px var(--hover-brown);
+}
+
+.secondary-action-btn:hover {
+  background: var(--hover-brown-light);
+  border-color: var(--color-brown);
+  transform: translateY(-2px);
+}

@@ -1,0 +1,48 @@
+/* ========================================
+    CSS CUSTOM PROPERTIES & VARIABLES
+======================================== */
+/* CSS custom properties & color system */
+
+:root {
+  /* Brand Colors */
+  --color-sage-green: #A8BBA3;
+  --color-cream: #F7F4EA;
+  --color-beige: #EBD9D1;
+  --color-brown: #B87C4C;
+
+  /* Color Variations */
+  --color-sage-light: #bac7b5;
+  --color-brown-light: #c48c5c;
+  --color-brown-dark: #a66c3c;
+
+  /* Text Colors */
+  --text-dark: #2d3748;
+  --text-medium: #a66c3c;
+
+  /* Glass Effects */
+  --glass-cream: rgba(247, 244, 234, 0.95);
+  --glass-cream-light: rgba(247, 244, 234, 0.8);
+  --glass-brown: rgba(184, 124, 76, 0.6);
+
+  /* Interactive States */
+  --hover-sage: rgba(168, 187, 163, 0.3);
+  --hover-sage-light: rgba(168, 187, 163, 0.15);
+  --hover-beige: rgba(235, 217, 209, 0.4);
+  --hover-brown: rgba(184, 124, 76, 0.3);
+  --hover-brown-light: rgba(184, 124, 76, 0.2);
+
+  /* Shadows */
+  --shadow-white-soft: rgba(255, 255, 255, 0.5);
+  --shadow-white-strong: rgba(255, 255, 255, 0.8);
+  --shadow-brown: rgba(166, 108, 60, 0.5);
+
+  /* Component Backgrounds */
+  --bg-panel: var(--glass-cream);
+  --bg-input: var(--glass-cream-light);
+  --border-light: var(--glass-brown);
+
+  /* Effects & Animations */
+  --blur-glass: blur(15px);
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}

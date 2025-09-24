@@ -1,0 +1,103 @@
+/* ========================================
+   QUESTIONS & PROGRESS
+======================================== */
+/* Quiz display & progress tracking */
+
+.questions-panel {
+  min-height: 600px;
+}
+
+.panel-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.panel-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-medium);
+  margin-bottom: 1rem;
+  text-shadow: 0 1px 3px var(--shadow-white-strong);
+}
+
+.panel-subtitle {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--color-brown);
+  margin: -0.5rem 0 1.5rem 0;
+  opacity: 0.9;
+}
+
+.progress-indicator {
+  background: var(--hover-sage-light);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.progress-text {
+  color: var(--text-medium);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--hover-sage-light);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-brown), var(--color-beige));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.questions-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.question-card {
+  position: relative;
+  transition: var(--transition-bounce);
+}
+
+.question-card.answered {
+  background: var(--hover-beige);
+  border-color: var(--color-brown);
+}
+
+.question-number {
+  position: absolute;
+  top: -15px;
+  right: 0.5rem;
+  background: var(--color-brown);
+  color: var(--color-cream);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 15px var(--shadow-brown);
+  z-index: 10;
+}
+
+.question-prompt {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 1.5rem;
+  text-shadow: 0 1px 2px var(--shadow-white-strong);
+  line-height: 1.6;
+}
+
+.answer-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}

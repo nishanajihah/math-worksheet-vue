@@ -1,0 +1,98 @@
+# ===== DEPENDENCIES =====
+node_modules/
+.pnpm-store/
+.npm
+.yarn/
+.yarn-integrity
+
+# ===== LOGS =====
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ===== BUILD OUTPUT =====
+dist/
+dist-ssr/
+build/
+.vite/
+.output/
+.nuxt/
+.cache/
+
+# ===== TESTING =====
+coverage/
+.nyc_output/
+/cypress/videos/
+/cypress/screenshots/
+
+# ===== ENVIRONMENT & CONFIG =====
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.local
+
+# ===== TEMPORARY FILES =====
+*.temp
+*.tmp
+.temp/
+.tmp/
+*~
+
+# ===== SYSTEM FILES =====
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ===== EDITOR & IDE =====
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+
+# ===== TYPESCRIPT =====
+*.tsbuildinfo
+
+# ===== VERCEL =====
+.vercel
+.vercel.json
+.now
+.next/
+
+# ===== DEPLOYMENT & PRODUCTION =====
+.netlify/
+.firebase/
+.surge/
+
+# ===== LOCK FILES (optional - uncomment if using different package manager) =====
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ===== MISC =====
+.eslintcache
+.stylelintcache
+*.pid
+*.seed
+*.pid.lock
+.sass-cache/
+.connect.lock
+.typings/

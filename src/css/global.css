@@ -1,0 +1,24 @@
+/* ========================================
+    GLOBAL STYLES & BASE LAYOUT
+======================================== */
+/* Base styles & app container */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, var(--color-cream) 0%, var(--color-beige) 100%);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.glassmorphic-app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, var(--color-cream) 0%, var(--color-beige) 100%);
+}
