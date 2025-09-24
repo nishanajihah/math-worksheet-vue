@@ -16,26 +16,70 @@ const score = ref(null);
 const message = ref('');
 const highScores = ref([]);
 
-// Fetch the questions
+// Control API call states
+const questionsLoaded = ref(false);
+const highScoresLoaded = ref(false);
+const isUserInteracting = ref(false);
+const isLoadingQuestions = ref(false);
+const isLoadingHighScores = ref(false);
+
+// Fetch the questions only when user interacts
 const fetchQuestions = async () => {
+  if (questionsLoaded.value || isLoadingQuestions.value) return; // Don't fetch if already loaded or loading
+
+  isLoadingQuestions.value = true;
   try {
     const response = await axios.get(API_URL_QUESTIONS);
     questions.value = response.data;
+    questionsLoaded.value = true;
   } catch (error) {
     console.error('Failed to fetch questions:', error);
-    message.value = "Failed to load questions. Please check the server.";
+    message.value = "Failed to load questions. Click to retry.";
+  } finally {
+    isLoadingQuestions.value = false;
   }
 };
 
-// Fetch latest high scores from backend
+// Fetch latest high scores from backend only when needed
 const fetchHighScores = async () => {
+  if (highScoresLoaded.value || isLoadingHighScores.value) return; // Don't fetch if already loaded or loading
+
+  isLoadingHighScores.value = true;
   try {
     const response = await axios.get(API_URL_SCORES);
     highScores.value = response.data;
+    highScoresLoaded.value = true;
   } catch (error) {
     console.error('Failed to fetch high scores:', error);
-    message.value = "Failed to load high scores. Please check the server.";
+    message.value = "Failed to load high scores. Click to retry.";
+  } finally {
+    isLoadingHighScores.value = false;
   }
+};
+
+// Manual refresh high scores (force reload)
+const refreshHighScores = async () => {
+  highScoresLoaded.value = false;
+  await fetchHighScores();
+};
+
+// Detect user interaction and load data
+const handleUserInteraction = async () => {
+  if (isUserInteracting.value) return; // Already detected interaction
+
+  isUserInteracting.value = true;
+
+  // Load questions first (needed for worksheet)
+  if (!questionsLoaded.value) {
+    await fetchQuestions();
+  }
+
+  // Load high scores (less critical, can be delayed)
+  setTimeout(async () => {
+    if (!highScoresLoaded.value) {
+      await fetchHighScores();
+    }
+  }, 1000); // Delay high scores by 1 second
 };
 
 // Calculate the score and submit it to the backend
@@ -64,6 +108,9 @@ const calculateScore = async () => {
 
     score.value = response.data.score;
     message.value = response.data.message;
+
+    // Force refresh high scores after score submission
+    highScoresLoaded.value = false;
     await fetchHighScores();
 
     // Auto-reset the worksheet after successful submission
@@ -91,12 +138,23 @@ const resetWorksheet = () => {
   userAnswers.value = {};
 };
 
-// lifecycle hook calling automatically
-// `onMounted` is a Vue lifecycle hook we call it below other to list it as soon as we call it the app starts
-// Fetch questions and scores when the component is mounted
-onMounted(async () => {
-  await fetchQuestions();
-  await fetchHighScores();
+// Initialize app without automatic API calls
+onMounted(() => {
+  // Add event listeners for user interactions
+  const interactionEvents = ['click', 'keydown', 'scroll', 'mousemove', 'touchstart'];
+
+  const handleFirstInteraction = () => {
+    handleUserInteraction();
+    // Remove listeners after first interaction
+    interactionEvents.forEach(event => {
+      document.removeEventListener(event, handleFirstInteraction);
+    });
+  };
+
+  // Listen for any user interaction
+  interactionEvents.forEach(event => {
+    document.addEventListener(event, handleFirstInteraction, { passive: true });
+  });
 });
 
 </script>
@@ -121,7 +179,7 @@ onMounted(async () => {
             <div class="name-input-row">
               <label for="userName" class="input-label">Your Name</label>
               <input id="userName" v-model="userName" type="text" class="glass-input" placeholder="Enter your name..."
-                maxlength="50" />
+                maxlength="50" @focus="handleUserInteraction" />
             </div>
           </div>
         </div>
@@ -164,7 +222,18 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="questions-container">
+        <!-- Loading state for questions -->
+        <div v-if="isLoadingQuestions" class="loading-container">
+          <div class="loading-text">Loading math questions...</div>
+        </div>
+
+        <!-- No questions loaded yet -->
+        <div v-else-if="!questionsLoaded && !isLoadingQuestions" class="load-prompt">
+          <div class="load-text">Ready to start your math challenge?</div>
+          <button @click="handleUserInteraction" class="glass-btn load-btn">Load Questions</button>
+        </div>
+
+        <div v-else class="questions-container">
           <div v-for="(questionObj, index) in questions" :key="questionObj.id" class="glass-card question-card"
             :class="{ answered: userAnswers[questionObj.id] }">
             <div class="question-number">{{ index + 1 }}</div>
@@ -192,12 +261,25 @@ onMounted(async () => {
         <!-- Leaderboard Section -->
         <div class="glass-panel leaderboard-section">
           <div class="section-header">
-            <h3 class="section-title">
-              Highscores Top 10
-            </h3>
+            <h3 class="section-title">Highscores Top 10</h3>
+            <button v-if="highScoresLoaded" @click="refreshHighScores" class="glass-btn refresh-btn" :disabled="isLoadingHighScores">
+              {{ isLoadingHighScores ? '⟳' : '↻' }} Refresh
+            </button>
           </div>
 
-          <div v-if="highScores.length === 0" class="empty-leaderboard">
+          <!-- Loading high scores -->
+          <div v-if="isLoadingHighScores" class="loading-container">
+            <div class="loading-text">Loading leaderboard...</div>
+          </div>
+
+          <!-- No high scores loaded yet -->
+          <div v-else-if="!highScoresLoaded && !isLoadingHighScores" class="load-prompt">
+            <div class="load-text">View the leaderboard</div>
+            <button @click="handleUserInteraction" class="glass-btn load-btn">Load Scores</button>
+          </div>
+
+          <!-- Empty leaderboard -->
+          <div v-else-if="highScores.length === 0" class="empty-leaderboard">
             <div class="empty-text">No Highscore yet!</div>
             <div class="empty-subtext">Be the first to complete the challenge</div>
           </div>
