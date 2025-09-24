@@ -36,14 +36,48 @@ let lastApiCall = 0
 // ================================
 const isBot = () => {
   const ua = navigator.userAgent.toLowerCase()
-  return ua.includes('bot') ||
-         ua.includes('crawler') ||
-         ua.includes('spider') ||
-         ua.includes('scraper') ||
-         ua.includes('headless') ||
-         navigator.webdriver !== undefined ||
-         window.callPhantom ||
-         window._phantom
+
+  // Debug logging
+  console.log('Bot check - User Agent:', navigator.userAgent)
+  console.log('Bot check - webdriver:', navigator.webdriver)
+  console.log('Bot check - callPhantom:', window.callPhantom)
+  console.log('Bot check - _phantom:', window._phantom)
+
+  if (ua.includes('bot')) {
+    console.log('Bot detected: User agent contains "bot"')
+    return true
+  }
+  if (ua.includes('crawler')) {
+    console.log('Bot detected: User agent contains "crawler"')
+    return true
+  }
+  if (ua.includes('spider')) {
+    console.log('Bot detected: User agent contains "spider"')
+    return true
+  }
+  if (ua.includes('scraper')) {
+    console.log('Bot detected: User agent contains "scraper"')
+    return true
+  }
+  if (ua.includes('headless')) {
+    console.log('Bot detected: User agent contains "headless"')
+    return true
+  }
+  if (navigator.webdriver !== undefined) {
+    console.log('Bot detected: webdriver detected')
+    return true
+  }
+  if (window.callPhantom) {
+    console.log('Bot detected: callPhantom detected')
+    return true
+  }
+  if (window._phantom) {
+    console.log('Bot detected: _phantom detected')
+    return true
+  }
+
+  console.log('Bot check passed - legitimate user detected')
+  return false
 }
 
 // ================================
