@@ -1,14 +1,41 @@
 <script setup>
-import { ref, onMounted } from 'vue';
-import axios from 'axios';
+import { ref, onMounted } from 'vue'
+import axios from 'axios'
 
-// Backend URLs
-const API_URL_SCORES = 'https://math-worksheet-backend.vercel.app/api/scores';
-const API_URL_QUESTIONS = 'https://math-worksheet-backend.vercel.app/api/questions';
+const API_URL_SCORES = 'https://math-worksheet-backend.vercel.app/api/scores'
+const API_URL_QUESTIONS = 'https://math-worksheet-backend.vercel.app/api/questions'
 
-// Global bot protection - block ALL API calls if bot detected
+// ================================
+// REACTIVE STATE
+// ================================
+// Core application data
+const questions = ref([])
+const userAnswers = ref({})
+const userName = ref('')
+const score = ref(null)
+const message = ref('')
+const highScores = ref([])
+
+// Application states
+const isLoading = ref(false)
+const isSubmitting = ref(false)
+const dataLoaded = ref(false)
+const backendAvailable = ref(true)
+const criticalError = ref(false)
+
+// Security and activation
+const hasRealUser = ref(false)
+const appActivated = ref(false)
+const honeypot = ref('')
+
+// Rate limiting
+let lastApiCall = 0
+
+// ================================
+// BOT DETECTION
+// ================================
 const isBot = () => {
-  const ua = navigator.userAgent.toLowerCase();
+  const ua = navigator.userAgent.toLowerCase()
   return ua.includes('bot') ||
          ua.includes('crawler') ||
          ua.includes('spider') ||
@@ -16,367 +43,251 @@ const isBot = () => {
          ua.includes('headless') ||
          navigator.webdriver !== undefined ||
          window.callPhantom ||
-         window._phantom;
-};
+         window._phantom
+}
 
-// Core data
-const questions = ref([]);
-const userAnswers = ref({});
-const userName = ref('');
-const honeypot = ref(''); // Hidden field to catch bots
-const score = ref(null);
-const message = ref('');
-const highScores = ref([]);
-
-// Simple loading states (no complex caching)
-const isLoading = ref(false);
-const isSubmitting = ref(false);
-const dataLoaded = ref(false);
-const backendAvailable = ref(true);
-const criticalError = ref(false);
-const userInteracted = ref(false);
-
-// User interaction detection with rate limiting
-const hasRealUser = ref(false);
-let lastApiCall = 0;
-
-// SOLUTION 1: Only load data when real user interaction is detected
-const loadInitialData = async () => {
-  if (dataLoaded.value || isLoading.value) return;
-
-  // Global bot check
+// ================================
+// APP ACTIVATION
+// ================================
+const activateApp = () => {
+  // Security checks
   if (isBot()) {
-    console.log('🤖 API call blocked - bot detected');
-    return;
+    console.log('App activation blocked - bot detected')
+    return
   }
 
-  // Only load if user has actually interacted with the page
+  if (honeypot.value) {
+    console.log('App activation blocked - honeypot filled')
+    return
+  }
+
+  // Activate application
+  appActivated.value = true
+  hasRealUser.value = true
+  console.log('App manually activated by user')
+
+  // Load initial data
+  loadInitialData()
+}
+
+// ================================
+// DATA LOADING
+// ================================
+const loadInitialData = async () => {
+  // Prevent duplicate loading
+  if (dataLoaded.value || isLoading.value) return
+
+  // Security checks
+  if (!appActivated.value) {
+    console.log('API call blocked - app not manually activated')
+    return
+  }
+
+  if (isBot()) {
+    console.log('API call blocked - bot detected')
+    return
+  }
+
   if (!hasRealUser.value) {
-    console.log('⏸️ API call skipped - no user interaction detected');
-    return;
+    console.log('API call skipped - no user interaction detected')
+    return
   }
 
-  // Rate limiting: prevent multiple API calls within 10 seconds
-  const now = Date.now();
+  // Rate limiting
+  const now = Date.now()
   if (now - lastApiCall < 10000) {
-    console.log('⏸️ API call rate limited - too soon after previous call');
-    return;
+    console.log('API call rate limited - too soon after previous call')
+    return
   }
-  lastApiCall = now;
+  lastApiCall = now
 
-  isLoading.value = true;
+  isLoading.value = true
 
   try {
-    // Load questions and scores in parallel (only once!)
+    // Load questions and scores in parallel
     const [questionsResponse, scoresResponse] = await Promise.allSettled([
       axios.get(API_URL_QUESTIONS, { timeout: 10000 }),
       axios.get(API_URL_SCORES, { timeout: 10000 })
-    ]);
+    ])
 
-    // Handle questions
+    // Handle questions response
     if (questionsResponse.status === 'fulfilled') {
-      questions.value = questionsResponse.value.data;
-      backendAvailable.value = true;
-      console.log('✅ Questions loaded successfully');
+      questions.value = questionsResponse.value.data
+      backendAvailable.value = true
+      console.log('Questions loaded successfully')
     } else {
-      console.error('❌ Failed to load questions:', questionsResponse.reason);
-      backendAvailable.value = false;
-      criticalError.value = true;
-      message.value = 'Backend service is unavailable. Please refresh the page or try again later.';
+      console.error('Failed to load questions:', questionsResponse.reason)
+      backendAvailable.value = false
+      criticalError.value = true
+      message.value = 'Backend service is unavailable. Please refresh the page or try again later.'
     }
 
-    // Handle scores (optional, don't fail if this doesn't work)
+    // Handle scores response (optional)
     if (scoresResponse.status === 'fulfilled') {
-      highScores.value = scoresResponse.value.data;
-      console.log('✅ High scores loaded successfully');
+      highScores.value = scoresResponse.value.data
+      console.log('High scores loaded successfully')
     } else {
-      console.log('ℹ️ High scores not available yet');
-      highScores.value = [];
-      // Don't mark backend as unavailable just for scores failing
+      console.log('High scores not available yet')
+      highScores.value = []
     }
 
-    dataLoaded.value = true;
+    dataLoaded.value = true
 
   } catch (error) {
-    console.error('❌ Critical error loading data:', error);
-    backendAvailable.value = false;
-    criticalError.value = true;
-    message.value = 'Service temporarily unavailable. Please refresh the page to try again.';
+    console.error('Critical error loading data:', error)
+    backendAvailable.value = false
+    criticalError.value = true
+    message.value = 'Service temporarily unavailable. Please refresh the page to try again.'
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
-};
+}
 
-// SOLUTION 2: Only submit when user actually submits
+// ================================
+// SCORE CALCULATION
+// ================================
 const calculateScore = async () => {
-  if (isSubmitting.value) return;
+  // Prevent duplicate submissions
+  if (isSubmitting.value) return
 
-  // Global bot check
+  // Security checks
   if (isBot()) {
-    console.log('🤖 Submission blocked - bot detected');
-    return;
+    console.log('Submission blocked - bot detected')
+    return
   }
 
-  // Honeypot protection - block bots
   if (honeypot.value) {
-    console.log('🍯 Bot submission blocked via honeypot');
-    return;
+    console.log('Submission blocked - honeypot filled')
+    return
   }
 
-  // Block if no real user interaction detected
   if (!hasRealUser.value) {
-    console.log('🚫 Submission blocked - no verified user interaction');
-    return;
+    console.log('Submission blocked - no verified user interaction')
+    return
   }
 
-  // Check if backend is available
+  // Backend availability check
   if (!backendAvailable.value) {
-    message.value = 'Service is currently unavailable. Please refresh the page and try again.';
-    return;
+    message.value = 'Service is currently unavailable. Please refresh the page and try again.'
+    return
   }
 
-  // Validation
+  // Form validation
   if (!userName.value?.trim()) {
-    message.value = 'Please enter your name before submitting.';
-    return;
+    message.value = 'Please enter your name before submitting.'
+    return
   }
 
-  const trimmedName = userName.value.trim();
+  const trimmedName = userName.value.trim()
   if (trimmedName.length < 2 || trimmedName.length > 50) {
-    message.value = 'Name must be between 2 and 50 characters.';
-    return;
+    message.value = 'Name must be between 2 and 50 characters.'
+    return
   }
 
-  const answeredCount = Object.keys(userAnswers.value).length;
+  const answeredCount = Object.keys(userAnswers.value).length
   if (answeredCount < questions.value.length) {
-    message.value = `Please answer all ${questions.value.length} questions. You've answered ${answeredCount}.`;
-    return;
+    message.value = `Please answer all ${questions.value.length} questions. You've answered ${answeredCount}.`
+    return
   }
 
-  isSubmitting.value = true;
+  isSubmitting.value = true
 
   try {
     const response = await axios.post(API_URL_SCORES, {
       name: trimmedName,
       userAnswers: userAnswers.value
-    }, { timeout: 15000 });
+    }, { timeout: 15000 })
 
-    score.value = response.data.score;
-    message.value = response.data.message;
+    score.value = response.data.score
+    message.value = response.data.message
 
-    // SOLUTION 3: Update high scores from response (no extra API call!)
+    // Update high scores from response
     if (response.data.highScores) {
-      highScores.value = response.data.highScores;
+      highScores.value = response.data.highScores
     }
 
     // Reset form
-    userAnswers.value = {};
-    userName.value = '';
+    userAnswers.value = {}
+    userName.value = ''
 
-    console.log('✅ Score submitted successfully');
+    console.log('Score submitted successfully')
 
   } catch (error) {
-    console.error('❌ Failed to submit score:', error);
+    console.error('Failed to submit score:', error)
 
-    // If it's a network or server error, mark backend as unavailable
+    // Handle network/server errors
     if (error.code === 'ECONNABORTED' || error.response?.status >= 500) {
-      backendAvailable.value = false;
-      criticalError.value = true;
-      message.value = 'Backend service is unavailable. Please refresh the page to try again.';
+      backendAvailable.value = false
+      criticalError.value = true
+      message.value = 'Backend service is unavailable. Please refresh the page to try again.'
     } else {
-      message.value = 'Failed to submit score. Please try again.';
+      message.value = 'Failed to submit score. Please try again.'
     }
   } finally {
-    isSubmitting.value = false;
+    isSubmitting.value = false
   }
-};
+}
 
-// SOLUTION 4: Simple reset (no API calls)
+// ================================
+// UTILITY FUNCTIONS
+// ================================
 const resetWorksheet = () => {
-  userName.value = '';
-  score.value = null;
-  message.value = '';
-  userAnswers.value = {};
-};
+  userName.value = ''
+  score.value = null
+  message.value = ''
+  userAnswers.value = {}
+}
 
-// SOLUTION 5: Manual refresh only when user clicks (rare)
 const refreshHighScores = async () => {
-  // Global bot check
+  // Security checks
   if (isBot()) {
-    console.log('🤖 High scores refresh blocked - bot detected');
-    return;
+    console.log('High scores refresh blocked - bot detected')
+    return
   }
 
-  // Block if no real user interaction detected
   if (!hasRealUser.value) {
-    console.log('🚫 High scores refresh blocked - no verified user interaction');
-    return;
+    console.log('High scores refresh blocked - no verified user interaction')
+    return
   }
 
   if (!backendAvailable.value) {
-    message.value = 'Service is currently unavailable. Please refresh the page to try again.';
-    return;
+    message.value = 'Service is currently unavailable. Please refresh the page to try again.'
+    return
   }
 
   try {
-    const response = await axios.get(API_URL_SCORES, { timeout: 10000 });
-    highScores.value = response.data;
-    console.log('✅ High scores refreshed');
+    const response = await axios.get(API_URL_SCORES, { timeout: 10000 })
+    highScores.value = response.data
+    console.log('High scores refreshed')
   } catch (error) {
-    console.error('❌ Failed to refresh high scores:', error);
+    console.error('Failed to refresh high scores:', error)
 
-    // If it's a server error, mark backend as unavailable
     if (error.code === 'ECONNABORTED' || error.response?.status >= 500) {
-      backendAvailable.value = false;
-      message.value = 'Backend service is unavailable. Please refresh the page to try again.';
+      backendAvailable.value = false
+      message.value = 'Backend service is unavailable. Please refresh the page to try again.'
     } else {
-      message.value = 'Failed to refresh high scores.';
+      message.value = 'Failed to refresh high scores.'
     }
   }
-};
+}
 
-// Reload page when backend is unavailable
 const reloadPage = () => {
-  window.location.reload();
-};
+  window.location.reload()
+}
 
-// Detect real user interactions (not bots/crawlers)
-const detectUserInteraction = () => {
-  if (hasRealUser.value) return; // Already detected
-
-  // Global bot check first
-  if (isBot()) {
-    console.log('🤖 User interaction blocked - bot detected');
-    return;
-  }
-
-  // Honeypot check - bots often fill hidden fields
-  if (honeypot.value) {
-    console.log('🍯 Bot detected via honeypot - blocking API calls');
-    return;
-  }
-
-  // Check for proper browser environment
-  if (typeof window === 'undefined' ||
-      typeof document === 'undefined' ||
-      !window.innerHeight ||
-      !window.innerWidth) {
-    console.log('🚫 Invalid browser environment - blocking API calls');
-    return;
-  }  hasRealUser.value = true;
-  userInteracted.value = true;
-  console.log('👤 Real user confirmed - enabling API calls');
-
-  // Now load the data
-  loadInitialData();
-
-  // Remove event listeners after first interaction
-  removeInteractionListeners();
-};
-
-// Enhanced user interaction tracking
-let interactionListeners = [];
-let interactionCount = 0;
-let hasMouseMoved = false;
-let hasClicked = false;
-
-const checkRealUserInteraction = (eventType) => {
-  interactionCount++;
-
-  if (eventType === 'mousemove') hasMouseMoved = true;
-  if (eventType === 'click') hasClicked = true;
-
-  // MUCH MORE STRICT: Require BOTH mouse movement AND a click/key event
-  // This eliminates most bot/automated interactions
-  const isRealUser = hasMouseMoved &&
-                    (hasClicked || eventType === 'keydown') &&
-                    interactionCount >= 3;
-
-  if (isRealUser) {
-    console.log(`✅ Real user confirmed after ${interactionCount} interactions`);
-    detectUserInteraction();
-  } else {
-    console.log(`⏳ Interaction ${interactionCount} (${eventType}) - need mouse movement + click/key + 3+ events`);
-  }
-};
-
-const addInteractionListeners = () => {
-  // More selective events - focus on user-driven interactions
-  const events = [
-    'click', 'keydown', 'mousemove', 'mousedown', 'touchstart'
-    // Removed: scroll, mouseup, touchend, focus, blur (too easily faked)
-  ];
-
-  events.forEach(eventType => {
-    const listener = (event) => {
-      // Skip programmatic events
-      if (event.isTrusted === false) return;
-      checkRealUserInteraction(eventType);
-    };
-    document.addEventListener(eventType, listener, { passive: true });
-    interactionListeners.push({ eventType, listener });
-  });
-};
-
-const removeInteractionListeners = () => {
-  interactionListeners.forEach(({ eventType, listener }) => {
-    document.removeEventListener(eventType, listener);
-  });
-  interactionListeners = [];
-};
-
-// Also detect visibility change (user switching tabs/focus)
-const handleVisibilityChange = () => {
-  if (!document.hidden && !hasRealUser.value) {
-    // User came back to the tab - but we need MORE confirmation they're real
-    // Only trigger after they've been back for 3+ seconds AND moved mouse/clicked
-    setTimeout(() => {
-      if (!document.hidden && !hasRealUser.value) {
-        console.log('👀 User returned to tab - still waiting for genuine interaction');
-        // Don't auto-trigger - let them actually interact first
-      }
-    }, 3000);
-  }
-};
-
-// SOLUTION 6: Only add event listeners on mount - NO automatic API calls
+// ================================
+// LIFECYCLE
+// ================================
 onMounted(() => {
-  console.log('🚀 App mounted - waiting for user interaction...');
-
-  // Comprehensive bot detection on mount
-  const userAgent = navigator.userAgent.toLowerCase();
-  const hasBot = userAgent.includes('bot') ||
-                 userAgent.includes('crawler') ||
-                 userAgent.includes('spider') ||
-                 userAgent.includes('scraper') ||
-                 userAgent.includes('headless') ||
-                 userAgent.includes('phantom') ||
-                 userAgent.includes('selenium') ||
-                 navigator.webdriver !== undefined ||
-                 window.navigator.webdriver ||
-                 window.callPhantom ||
-                 window._phantom ||
-                 window.Buffer !== undefined; // Node.js buffer in browser
-
-  if (hasBot) {
-    console.log('🤖 Bot/automated browser detected on mount - API calls permanently disabled');
-    return; // Don't even add event listeners
-  }
-
-  // Add event listeners to detect real users
-  addInteractionListeners();
-
-  // Also listen for visibility changes
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-
-  console.log('⏸️ Waiting for genuine user interaction - no automatic triggers');
-});
+  console.log('App mounted - waiting for manual activation...')
+  console.log('App in passive mode - manual activation required')
+})
 </script>
 
 <template>
   <div class="glassmorphic-app">
-    <!-- Navigation -->
-    <nav class="glass-nav">
+    <!-- Navigation (only shown when activated) -->
+    <nav v-if="appActivated" class="glass-nav">
       <div class="nav-container">
         <div class="unified-controls-container">
           <div class="controls-left">
@@ -409,8 +320,7 @@ onMounted(() => {
                 class="glass-input"
                 placeholder="Enter your name..."
                 maxlength="50"
-                @focus="detectUserInteraction"
-                @input="detectUserInteraction"
+
               />
 
               <!-- Honeypot trap for bots (hidden from users) -->
@@ -449,8 +359,40 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Main Content -->
-    <main class="main-grid">
+    <!-- Activation Screen (shown when app not activated) -->
+    <main v-if="!appActivated" class="main-grid activation-mode">
+      <section class="glass-panel activation-panel">
+        <div class="activation-content">
+          <h1 class="activation-title">Math Worksheet</h1>
+          <p class="activation-subtitle">Rounding to the nearest 10</p>
+          <p class="activation-description">
+            Click the button below to start the interactive math worksheet.
+            This helps us ensure you're a real person and not an automated bot.
+          </p>
+
+          <!-- Honeypot trap -->
+          <input
+            v-model="honeypot"
+            type="text"
+            style="position: absolute; left: -9999px; visibility: hidden;"
+            tabindex="-1"
+            autocomplete="off"
+            aria-hidden="true"
+          />
+
+          <button @click="activateApp" class="glass-btn activation-btn">
+            Start Math Quiz
+          </button>
+
+          <p class="activation-note">
+            No data is loaded until you click this button.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Main Content (shown only after activation) -->
+    <main v-else class="main-grid">
       <!-- Questions Panel -->
       <section class="glass-panel questions-panel">
         <div class="panel-header">
@@ -475,7 +417,7 @@ onMounted(() => {
         <!-- Waiting for User Interaction -->
         <div v-if="!hasRealUser && !isLoading" class="interaction-prompt">
           <div class="prompt-text">👋 Welcome! Click anywhere to start your math challenge</div>
-          <button @click="detectUserInteraction" class="glass-btn start-btn">Start Quiz</button>
+          <button @click="activateApp" class="glass-btn start-btn">Start Quiz</button>
         </div>
 
         <!-- Loading State -->
@@ -499,7 +441,7 @@ onMounted(() => {
               <button
                 v-for="(choice, choiceIndex) in questionObj.choices"
                 :key="choiceIndex"
-                @click="userAnswers[questionObj.id] = choice; detectUserInteraction()"
+                @click="userAnswers[questionObj.id] = choice"
                 class="choice-btn"
                 :class="{ selected: userAnswers[questionObj.id] === choice }"
               >
@@ -604,4 +546,68 @@ onMounted(() => {
 @import './css/leaderboard.css';
 @import './css/footer.css';
 @import './css/responsive.css';
+
+/* Activation Screen Styles */
+.activation-mode {
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+}
+
+.activation-panel {
+  max-width: 500px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.activation-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.activation-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-color);
+  margin: 0;
+}
+
+.activation-subtitle {
+  font-size: 1.25rem;
+  color: var(--secondary-text-color);
+  margin: 0;
+}
+
+.activation-description {
+  font-size: 1rem;
+  color: var(--text-color);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.activation-btn {
+  padding: 1rem 2rem !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color)) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3) !important;
+  transition: all 0.3s ease !important;
+}
+
+.activation-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 30px rgba(255, 107, 107, 0.4) !important;
+}
+
+.activation-note {
+  font-size: 0.875rem;
+  color: var(--secondary-text-color);
+  font-style: italic;
+  margin: 0;
+}
 </style>
