@@ -94,19 +94,20 @@
 }
 
 .refresh-page-btn {
-  background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
-  border-color: #c0392b !important;
+  background: linear-gradient(135deg, var(--color-brown), var(--color-brown-light)) !important;
+  border-color: var(--color-brown) !important;
+  color: white !important;
   animation: pulse 2s infinite;
 }
 
 .refresh-page-btn:hover {
-  background: linear-gradient(135deg, #c0392b, #a93226) !important;
+  background: linear-gradient(135deg, var(--color-brown-light), var(--color-brown)) !important;
   transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 8px 25px rgba(231, 76, 60, 0.4);
+  box-shadow: 0 8px 25px var(--hover-brown);
 }
 
 @keyframes pulse {
-  0% { box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3); }
-  50% { box-shadow: 0 6px 25px rgba(231, 76, 60, 0.5); }
-  100% { box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3); }
+  0% { box-shadow: 0 4px 15px var(--shadow-brown); }
+  50% { box-shadow: 0 6px 25px var(--hover-brown); }
+  100% { box-shadow: 0 4px 15px var(--shadow-brown); }
 }

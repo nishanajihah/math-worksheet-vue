@@ -144,3 +144,41 @@
   50% { box-shadow: 0 6px 25px var(--hover-brown); }
   100% { box-shadow: 0 4px 15px var(--shadow-brown); }
 }
+
+/* Error State */
+.error-container {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: linear-gradient(135deg, var(--hover-sage-light), var(--hover-cream-light));
+  border-radius: 15px;
+  margin: 2rem 0;
+  border: 2px solid var(--color-sage-green);
+}
+
+.error-text {
+  font-size: 1.3rem;
+  color: var(--text-dark);
+  margin-bottom: 2rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px var(--shadow-white-soft);
+}
+
+.retry-btn {
+  background: linear-gradient(135deg, var(--color-brown), var(--color-brown-light)) !important;
+  border: 2px solid var(--color-brown) !important;
+  color: white !important;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 15px var(--shadow-brown);
+  animation: pulse-glow 2s infinite;
+}
+
+.retry-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px var(--hover-brown);
+  background: linear-gradient(135deg, var(--color-brown-light), var(--color-brown)) !important;
+}
