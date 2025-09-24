@@ -107,9 +107,15 @@
   }
 
   .glass-nav {
+    position: -webkit-sticky; /* Safari support */
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 1000; /* Higher z-index for mobile */
+    width: 100%;
+    left: 0;
+    right: 0;
+    will-change: transform; /* Performance optimization */
+    transform: translateZ(0); /* Force GPU acceleration */
   }
 
   .unified-controls-container {

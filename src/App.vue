@@ -18,6 +18,8 @@ const highScores = ref([]);
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 const dataLoaded = ref(false);
+const backendAvailable = ref(true);
+const criticalError = ref(false);
 
 // ✅ SOLUTION 1: Single API call on mount (no interaction detection)
 const loadInitialData = async () => {
@@ -35,10 +37,13 @@ const loadInitialData = async () => {
     // Handle questions
     if (questionsResponse.status === 'fulfilled') {
       questions.value = questionsResponse.value.data;
+      backendAvailable.value = true;
       console.log('✅ Questions loaded successfully');
     } else {
       console.error('❌ Failed to load questions:', questionsResponse.reason);
-      message.value = 'Failed to load questions. Please refresh the page.';
+      backendAvailable.value = false;
+      criticalError.value = true;
+      message.value = 'Backend service is unavailable. Please refresh the page or try again later.';
     }
 
     // Handle scores (optional, don't fail if this doesn't work)
@@ -48,13 +53,16 @@ const loadInitialData = async () => {
     } else {
       console.log('ℹ️ High scores not available yet');
       highScores.value = [];
+      // Don't mark backend as unavailable just for scores failing
     }
 
     dataLoaded.value = true;
 
   } catch (error) {
     console.error('❌ Critical error loading data:', error);
-    message.value = 'Failed to load the worksheet. Please refresh the page.';
+    backendAvailable.value = false;
+    criticalError.value = true;
+    message.value = 'Service temporarily unavailable. Please refresh the page to try again.';
   } finally {
     isLoading.value = false;
   }
@@ -63,6 +71,12 @@ const loadInitialData = async () => {
 // ✅ SOLUTION 2: Only submit when user actually submits
 const calculateScore = async () => {
   if (isSubmitting.value) return;
+
+  // Check if backend is available
+  if (!backendAvailable.value) {
+    message.value = 'Service is currently unavailable. Please refresh the page and try again.';
+    return;
+  }
 
   // Validation
   if (!userName.value?.trim()) {
@@ -106,7 +120,15 @@ const calculateScore = async () => {
 
   } catch (error) {
     console.error('❌ Failed to submit score:', error);
-    message.value = 'Failed to submit score. Please try again.';
+
+    // If it's a network or server error, mark backend as unavailable
+    if (error.code === 'ECONNABORTED' || error.response?.status >= 500) {
+      backendAvailable.value = false;
+      criticalError.value = true;
+      message.value = 'Backend service is unavailable. Please refresh the page to try again.';
+    } else {
+      message.value = 'Failed to submit score. Please try again.';
+    }
   } finally {
     isSubmitting.value = false;
   }
@@ -122,14 +144,31 @@ const resetWorksheet = () => {
 
 // ✅ SOLUTION 5: Manual refresh only when user clicks (rare)
 const refreshHighScores = async () => {
+  if (!backendAvailable.value) {
+    message.value = 'Service is currently unavailable. Please refresh the page to try again.';
+    return;
+  }
+
   try {
     const response = await axios.get(API_URL_SCORES, { timeout: 10000 });
     highScores.value = response.data;
     console.log('✅ High scores refreshed');
   } catch (error) {
     console.error('❌ Failed to refresh high scores:', error);
-    message.value = 'Failed to refresh high scores.';
+
+    // If it's a server error, mark backend as unavailable
+    if (error.code === 'ECONNABORTED' || error.response?.status >= 500) {
+      backendAvailable.value = false;
+      message.value = 'Backend service is unavailable. Please refresh the page to try again.';
+    } else {
+      message.value = 'Failed to refresh high scores.';
+    }
   }
+};
+
+// Reload page when backend is unavailable
+const reloadPage = () => {
+  window.location.reload();
 };
 
 // ✅ SOLUTION 6: Load data immediately on mount (no user interaction detection)
@@ -150,10 +189,10 @@ onMounted(() => {
               <button
                 @click="calculateScore"
                 class="glass-btn primary-action-btn"
-                :disabled="isSubmitting || isLoading"
+                :disabled="isSubmitting || isLoading || !backendAvailable"
               >
                 <span class="btn-text">
-                  {{ isSubmitting ? 'Submitting...' : 'Submit Answers' }}
+                  {{ isSubmitting ? 'Submitting...' : !backendAvailable ? 'Service Unavailable' : 'Submit Answers' }}
                 </span>
               </button>
               <button
@@ -195,7 +234,10 @@ onMounted(() => {
           <div class="notification-message">{{ message }}</div>
         </div>
         <div class="notification-footer">
-          <button @click="message = ''" class="ok-btn">OK</button>
+          <button v-if="criticalError" @click="reloadPage" class="ok-btn refresh-page-btn">
+            Refresh Page
+          </button>
+          <button v-else @click="message = ''" class="ok-btn">OK</button>
         </div>
       </div>
     </div>
@@ -267,7 +309,7 @@ onMounted(() => {
         <!-- Error State -->
         <div v-else class="error-container">
           <div class="error-text">Failed to load questions</div>
-          <button @click="loadInitialData" class="glass-btn retry-btn">Retry</button>
+          <button @click="reloadPage" class="glass-btn retry-btn refresh-page-btn">Refresh Page</button>
         </div>
       </section>
 
@@ -277,6 +319,7 @@ onMounted(() => {
           <div class="section-header">
             <h3 class="section-title">Highscores Top 10</h3>
             <button
+              v-if="backendAvailable && highScores.length > 0"
               @click="refreshHighScores"
               class="glass-btn refresh-btn"
               :disabled="isLoading"

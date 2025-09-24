@@ -113,3 +113,22 @@
   border-color: var(--color-brown);
   transform: translateY(-2px);
 }
+
+.glass-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.glass-btn:disabled:hover {
+  transform: none !important;
+  box-shadow: none !important;
+  background: var(--bg-panel);
+}
+
+.primary-action-btn:disabled {
+  background: linear-gradient(135deg, #9e9e9e, #757575) !important;
+  border-color: #757575 !important;
+  color: #ffffff !important;
+}

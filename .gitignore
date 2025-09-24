@@ -72,10 +72,11 @@ desktop.ini
 *.tsbuildinfo
 
 # ===== VERCEL =====
-.vercel
+.vercel/
 .vercel.json
-.now
+.now/
 .next/
+.output/
 
 # ===== DEPLOYMENT & PRODUCTION =====
 .netlify/
@@ -96,3 +97,64 @@ desktop.ini
 .sass-cache/
 .connect.lock
 .typings/
+
+# ===== SECURITY & SECRETS =====
+*.key
+*.pem
+*.p12
+*.pfx
+.secrets/
+secrets.json
+config.json
+.auth/
+
+# ===== DATABASE & DATA =====
+*.db
+*.sqlite
+*.sqlite3
+data/
+db/
+database/
+
+# ===== API KEYS & CREDENTIALS =====
+.credentials
+.service-account-key.json
+.gcp-keys.json
+.aws/
+.azure/
+
+# ===== RUNTIME & PROCESS =====
+.pm2/
+ecosystem.config.js
+.forever/
+.nodemon.json
+
+# ===== SOURCE MAPS (production) =====
+*.map
+!dist/**/*.map
+
+# ===== VENDOR & THIRD-PARTY =====
+vendor/
+lib/
+libs/
+
+# ===== WINDOWS SPECIFIC =====
+*.lnk
+$RECYCLE.BIN/
+
+# ===== MAC SPECIFIC =====
+.AppleDouble
+.LSOverride
+Icon
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# ===== LINUX SPECIFIC =====
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*

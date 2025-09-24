@@ -14,6 +14,9 @@ body {
   background: linear-gradient(135deg, var(--color-cream) 0%, var(--color-beige) 100%);
   min-height: 100vh;
   overflow-x: hidden;
+  /* Ensure proper viewport behavior for sticky positioning */
+  height: 100%;
+  position: relative;
 }
 
 .glassmorphic-app {
