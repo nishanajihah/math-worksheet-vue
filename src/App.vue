@@ -70,7 +70,9 @@ const activateApp = () => {
 
   // Load initial data
   loadInitialData()
-}// ================================
+}
+
+// ================================
 // DATA LOADING
 // ================================
 const loadInitialData = async () => {
@@ -103,6 +105,7 @@ const loadInitialData = async () => {
   lastApiCall = now
 
   isLoading.value = true
+  console.log('Starting to load questions and scores...')
 
   try {
     // Load questions and scores in parallel
@@ -111,11 +114,16 @@ const loadInitialData = async () => {
       axios.get(API_URL_SCORES, { timeout: 10000 })
     ])
 
+    console.log('API responses received:', {
+      questionsStatus: questionsResponse.status,
+      scoresStatus: scoresResponse.status
+    })
+
     // Handle questions response
     if (questionsResponse.status === 'fulfilled') {
       questions.value = questionsResponse.value.data
       backendAvailable.value = true
-      console.log('Questions loaded successfully')
+      console.log('Questions loaded successfully:', questions.value.length, 'questions')
     } else {
       console.error('Failed to load questions:', questionsResponse.reason)
       backendAvailable.value = false
@@ -126,7 +134,7 @@ const loadInitialData = async () => {
     // Handle scores response (optional)
     if (scoresResponse.status === 'fulfilled') {
       highScores.value = scoresResponse.value.data
-      console.log('High scores loaded successfully')
+      console.log('High scores loaded successfully:', highScores.value.length, 'entries')
     } else {
       console.log('High scores not available yet')
       highScores.value = []
@@ -443,7 +451,7 @@ onMounted(() => {
         </div>
 
         <!-- Error State -->
-        <div v-else-if="hasRealUser" class="error-container">
+        <div v-else-if="quizStarted && !isLoading && (questions.length === 0 || criticalError)" class="error-container">
           <div class="error-text">Failed to load questions</div>
           <button @click="reloadPage" class="glass-btn retry-btn refresh-page-btn">Refresh Page</button>
         </div>
