@@ -21,7 +21,7 @@ const dataLoaded = ref(false);
 const backendAvailable = ref(true);
 const criticalError = ref(false);
 
-// ✅ SOLUTION 1: Single API call on mount (no interaction detection)
+// SOLUTION 1: Single API call on mount (no interaction detection)
 const loadInitialData = async () => {
   if (dataLoaded.value || isLoading.value) return;
 
@@ -68,7 +68,7 @@ const loadInitialData = async () => {
   }
 };
 
-// ✅ SOLUTION 2: Only submit when user actually submits
+// SOLUTION 2: Only submit when user actually submits
 const calculateScore = async () => {
   if (isSubmitting.value) return;
 
@@ -107,7 +107,7 @@ const calculateScore = async () => {
     score.value = response.data.score;
     message.value = response.data.message;
 
-    // ✅ SOLUTION 3: Update high scores from response (no extra API call!)
+    // SOLUTION 3: Update high scores from response (no extra API call!)
     if (response.data.highScores) {
       highScores.value = response.data.highScores;
     }
@@ -134,7 +134,7 @@ const calculateScore = async () => {
   }
 };
 
-// ✅ SOLUTION 4: Simple reset (no API calls)
+// SOLUTION 4: Simple reset (no API calls)
 const resetWorksheet = () => {
   userName.value = '';
   score.value = null;
@@ -142,7 +142,7 @@ const resetWorksheet = () => {
   userAnswers.value = {};
 };
 
-// ✅ SOLUTION 5: Manual refresh only when user clicks (rare)
+// SOLUTION 5: Manual refresh only when user clicks (rare)
 const refreshHighScores = async () => {
   if (!backendAvailable.value) {
     message.value = 'Service is currently unavailable. Please refresh the page to try again.';
@@ -171,7 +171,7 @@ const reloadPage = () => {
   window.location.reload();
 };
 
-// ✅ SOLUTION 6: Load data immediately on mount (no user interaction detection)
+// SOLUTION 6: Load data immediately on mount (no user interaction detection)
 onMounted(() => {
   console.log('🚀 App mounted, loading data...');
   loadInitialData();
