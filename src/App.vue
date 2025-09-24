@@ -25,7 +25,6 @@ const criticalError = ref(false)
 
 // Security and activation
 const hasRealUser = ref(false)
-const appActivated = ref(false)
 const honeypot = ref('')
 
 // Rate limiting
@@ -62,15 +61,12 @@ const activateApp = () => {
   }
 
   // Activate application
-  appActivated.value = true
   hasRealUser.value = true
-  console.log('App manually activated by user')
+  console.log('User activated app - loading data')
 
   // Load initial data
   loadInitialData()
-}
-
-// ================================
+}// ================================
 // DATA LOADING
 // ================================
 const loadInitialData = async () => {
@@ -78,11 +74,6 @@ const loadInitialData = async () => {
   if (dataLoaded.value || isLoading.value) return
 
   // Security checks
-  if (!appActivated.value) {
-    console.log('API call blocked - app not manually activated')
-    return
-  }
-
   if (isBot()) {
     console.log('API call blocked - bot detected')
     return
@@ -286,8 +277,8 @@ onMounted(() => {
 
 <template>
   <div class="glassmorphic-app">
-    <!-- Navigation (only shown when activated) -->
-    <nav v-if="appActivated" class="glass-nav">
+    <!-- Navigation -->
+    <nav class="glass-nav">
       <div class="nav-container">
         <div class="unified-controls-container">
           <div class="controls-left">
@@ -359,40 +350,8 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Activation Screen (shown when app not activated) -->
-    <main v-if="!appActivated" class="main-grid activation-mode">
-      <section class="glass-panel activation-panel">
-        <div class="activation-content">
-          <h1 class="activation-title">Math Worksheet</h1>
-          <p class="activation-subtitle">Rounding to the nearest 10</p>
-          <p class="activation-description">
-            Click the button below to start the interactive math worksheet.
-            This helps us ensure you're a real person and not an automated bot.
-          </p>
-
-          <!-- Honeypot trap -->
-          <input
-            v-model="honeypot"
-            type="text"
-            style="position: absolute; left: -9999px; visibility: hidden;"
-            tabindex="-1"
-            autocomplete="off"
-            aria-hidden="true"
-          />
-
-          <button @click="activateApp" class="glass-btn activation-btn">
-            Start Math Quiz
-          </button>
-
-          <p class="activation-note">
-            No data is loaded until you click this button.
-          </p>
-        </div>
-      </section>
-    </main>
-
-    <!-- Main Content (shown only after activation) -->
-    <main v-else class="main-grid">
+    <!-- Main Content -->
+    <main class="main-grid">
       <!-- Questions Panel -->
       <section class="glass-panel questions-panel">
         <div class="panel-header">
@@ -416,7 +375,7 @@ onMounted(() => {
 
         <!-- Waiting for User Interaction -->
         <div v-if="!hasRealUser && !isLoading" class="interaction-prompt">
-          <div class="prompt-text">👋 Welcome! Click anywhere to start your math challenge</div>
+          <div class="prompt-text">Welcome! Click to start your math challenge</div>
           <button @click="activateApp" class="glass-btn start-btn">Start Quiz</button>
         </div>
 
@@ -547,67 +506,5 @@ onMounted(() => {
 @import './css/footer.css';
 @import './css/responsive.css';
 
-/* Activation Screen Styles */
-.activation-mode {
-  justify-content: center;
-  align-items: center;
-  min-height: 80vh;
-}
 
-.activation-panel {
-  max-width: 500px;
-  margin: 0 auto;
-  text-align: center;
-  padding: 3rem 2rem;
-}
-
-.activation-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  align-items: center;
-}
-
-.activation-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--text-color);
-  margin: 0;
-}
-
-.activation-subtitle {
-  font-size: 1.25rem;
-  color: var(--secondary-text-color);
-  margin: 0;
-}
-
-.activation-description {
-  font-size: 1rem;
-  color: var(--text-color);
-  line-height: 1.6;
-  margin: 0;
-}
-
-.activation-btn {
-  padding: 1rem 2rem !important;
-  font-size: 1.1rem !important;
-  font-weight: 600 !important;
-  background: linear-gradient(135deg, var(--primary-color), var(--accent-color)) !important;
-  color: white !important;
-  border: none !important;
-  box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3) !important;
-  transition: all 0.3s ease !important;
-}
-
-.activation-btn:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 12px 30px rgba(255, 107, 107, 0.4) !important;
-}
-
-.activation-note {
-  font-size: 0.875rem;
-  color: var(--secondary-text-color);
-  font-style: italic;
-  margin: 0;
-}
 </style>
