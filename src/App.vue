@@ -10,6 +10,7 @@ const API_URL_QUESTIONS = 'https://math-worksheet-backend.vercel.app/api/questio
 const questions = ref([]);
 const userAnswers = ref({});
 const userName = ref('');
+const honeypot = ref(''); // Hidden field to catch bots
 const score = ref(null);
 const message = ref('');
 const highScores = ref([]);
@@ -22,8 +23,9 @@ const backendAvailable = ref(true);
 const criticalError = ref(false);
 const userInteracted = ref(false);
 
-// User interaction detection
+// User interaction detection with rate limiting
 const hasRealUser = ref(false);
+let lastApiCall = 0;
 
 // SOLUTION 1: Only load data when real user interaction is detected
 const loadInitialData = async () => {
@@ -34,6 +36,14 @@ const loadInitialData = async () => {
     console.log('⏸️ API call skipped - no user interaction detected');
     return;
   }
+
+  // Rate limiting: prevent multiple API calls within 10 seconds
+  const now = Date.now();
+  if (now - lastApiCall < 10000) {
+    console.log('⏸️ API call rate limited - too soon after previous call');
+    return;
+  }
+  lastApiCall = now;
 
   isLoading.value = true;
 
@@ -81,6 +91,12 @@ const loadInitialData = async () => {
 // SOLUTION 2: Only submit when user actually submits
 const calculateScore = async () => {
   if (isSubmitting.value) return;
+
+  // Honeypot protection - block bots
+  if (honeypot.value) {
+    console.log('🍯 Bot submission blocked via honeypot');
+    return;
+  }
 
   // Ensure user interaction is detected
   if (!hasRealUser.value) {
@@ -195,9 +211,40 @@ const reloadPage = () => {
 const detectUserInteraction = () => {
   if (hasRealUser.value) return; // Already detected
 
+  // Honeypot check - bots often fill hidden fields
+  if (honeypot.value) {
+    console.log('🍯 Bot detected via honeypot - blocking API calls');
+    return;
+  }
+
+  // Enhanced bot detection
+  const userAgent = navigator.userAgent.toLowerCase();
+  const isLikelyBot = userAgent.includes('bot') ||
+                     userAgent.includes('crawler') ||
+                     userAgent.includes('spider') ||
+                     userAgent.includes('scraper') ||
+                     userAgent.includes('headless') ||
+                     userAgent.includes('phantom') ||
+                     userAgent.includes('selenium') ||
+                     navigator.webdriver !== undefined; // Headless browsers
+
+  if (isLikelyBot) {
+    console.log('🤖 Bot detected via User-Agent - blocking API calls');
+    return;
+  }
+
+  // Check for proper browser environment
+  if (typeof window === 'undefined' ||
+      typeof document === 'undefined' ||
+      !window.innerHeight ||
+      !window.innerWidth) {
+    console.log('🚫 Invalid browser environment - blocking API calls');
+    return;
+  }
+
   hasRealUser.value = true;
   userInteracted.value = true;
-  console.log('👤 Real user detected - enabling API calls');
+  console.log('👤 Real user confirmed - enabling API calls');
 
   // Now load the data
   loadInitialData();
@@ -206,8 +253,29 @@ const detectUserInteraction = () => {
   removeInteractionListeners();
 };
 
-// Add interaction event listeners
+// Enhanced user interaction tracking
 let interactionListeners = [];
+let interactionCount = 0;
+let hasMouseMoved = false;
+let hasClicked = false;
+
+const checkRealUserInteraction = (eventType) => {
+  interactionCount++;
+
+  if (eventType === 'mousemove') hasMouseMoved = true;
+  if (eventType === 'click') hasClicked = true;
+
+  // Require at least 2 different types of interaction OR mouse movement
+  const isRealUser = interactionCount >= 2 ||
+                    hasMouseMoved ||
+                    (hasClicked && interactionCount >= 1);
+
+  if (isRealUser) {
+    detectUserInteraction();
+  } else {
+    console.log(`⏳ Interaction ${interactionCount} (${eventType}) - waiting for more confirmation`);
+  }
+};
 
 const addInteractionListeners = () => {
   const events = [
@@ -216,8 +284,12 @@ const addInteractionListeners = () => {
   ];
 
   events.forEach(eventType => {
-    const listener = () => detectUserInteraction();
-    document.addEventListener(eventType, listener, { passive: true, once: true });
+    const listener = (event) => {
+      // Skip programmatic events
+      if (event.isTrusted === false) return;
+      checkRealUserInteraction(eventType);
+    };
+    document.addEventListener(eventType, listener, { passive: true });
     interactionListeners.push({ eventType, listener });
   });
 };
@@ -232,12 +304,14 @@ const removeInteractionListeners = () => {
 // Also detect visibility change (user switching tabs/focus)
 const handleVisibilityChange = () => {
   if (!document.hidden && !hasRealUser.value) {
-    // User came back to the tab - likely a real user
+    // User came back to the tab - but we need MORE confirmation they're real
+    // Only trigger after they've been back for 3+ seconds AND moved mouse/clicked
     setTimeout(() => {
-      if (!document.hidden) {
-        detectUserInteraction();
+      if (!document.hidden && !hasRealUser.value) {
+        console.log('👀 User returned to tab - still waiting for genuine interaction');
+        // Don't auto-trigger - let them actually interact first
       }
-    }, 1000); // Wait 1 second to confirm they're staying
+    }, 3000);
   }
 };
 
@@ -251,14 +325,8 @@ onMounted(() => {
   // Also listen for visibility changes
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
-  // Safety timeout: if user stays on page for 5+ seconds without interacting,
-  // they're probably a real user just reading
-  setTimeout(() => {
-    if (!hasRealUser.value && !document.hidden) {
-      console.log('👤 User stayed on page - assuming real user');
-      detectUserInteraction();
-    }
-  }, 5000);
+  // REMOVED: No automatic timeout - only real user interaction triggers API calls
+  console.log('⏸️ Waiting for genuine user interaction - no automatic triggers');
 });
 </script>
 
@@ -300,6 +368,16 @@ onMounted(() => {
                 maxlength="50"
                 @focus="detectUserInteraction"
                 @input="detectUserInteraction"
+              />
+
+              <!-- Honeypot trap for bots (hidden from users) -->
+              <input
+                v-model="honeypot"
+                type="text"
+                style="position: absolute; left: -9999px; visibility: hidden;"
+                tabindex="-1"
+                autocomplete="off"
+                aria-hidden="true"
               />
             </div>
           </div>
