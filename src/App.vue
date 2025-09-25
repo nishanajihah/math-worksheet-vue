@@ -50,7 +50,7 @@ const highScores = ref([])
 const isLoading = ref(false)
 const isSubmitting = ref(false)
 const dataLoaded = ref(false)
-const backendAvailable = ref(true)
+const backendAvailable = ref(false) // Start as false - only true after successful API calls
 const criticalError = ref(false)
 
 // ================================
@@ -59,6 +59,9 @@ const criticalError = ref(false)
 const hasRealUser = ref(false)
 const quizStarted = ref(false)
 const honeypot = ref('') // Bot detection honeypot
+
+// Master API switch - prevents ALL API calls until explicitly enabled
+const apiCallsEnabled = ref(false)
 
 // ================================
 // UTILITY - LOGGING
@@ -142,7 +145,8 @@ const activateApp = () => {
   // Activate quiz mode
   hasRealUser.value = true
   quizStarted.value = true
-  debugLog('Quiz activated - loading initial data')
+  apiCallsEnabled.value = true // Enable API calls ONLY after Start Quiz click
+  debugLog('Quiz activated - API calls enabled - loading initial data')
 
   // Load questions and scores
   loadInitialData()
@@ -152,6 +156,12 @@ const activateApp = () => {
 // CORE FUNCTIONALITY - DATA LOADING
 // ================================
 const loadInitialData = async () => {
+  // MASTER GUARD: Prevent ALL API calls until explicitly enabled
+  if (!apiCallsEnabled.value) {
+    debugLog('API call BLOCKED - API calls not enabled yet')
+    return
+  }
+
   // Prevent duplicate API calls
   if (dataLoaded.value || isLoading.value) return
 
@@ -223,6 +233,12 @@ const loadInitialData = async () => {
 // CORE FUNCTIONALITY - SCORE SUBMISSION
 // ================================
 const calculateScore = async () => {
+  // MASTER GUARD: Prevent ALL API calls until explicitly enabled
+  if (!apiCallsEnabled.value) {
+    debugLog('Score submission BLOCKED - API calls not enabled')
+    return
+  }
+
   // Prevent duplicate submissions
   if (isSubmitting.value) return
 
@@ -308,6 +324,12 @@ const resetWorksheet = () => {
 }
 
 const refreshHighScores = async () => {
+  // MASTER GUARD: Prevent ALL API calls until explicitly enabled
+  if (!apiCallsEnabled.value) {
+    debugLog('High scores refresh BLOCKED - API calls not enabled')
+    return
+  }
+
   // Security and state validation
   if (!quizStarted.value || isBot() || !hasRealUser.value || !backendAvailable.value) {
     debugLog('High scores refresh blocked - validation failed')
@@ -338,7 +360,14 @@ const reloadPage = () => {
 // COMPONENT LIFECYCLE
 // ================================
 onMounted(() => {
-  debugLog('Math Worksheet App initialized - waiting for user activation')
+  debugLog('Math Worksheet App initialized - PASSIVE MODE: No API calls until Start Quiz clicked')
+  debugLog('Current state:', {
+    quizStarted: quizStarted.value,
+    apiCallsEnabled: apiCallsEnabled.value,
+    hasRealUser: hasRealUser.value,
+    questionsCount: questions.value.length,
+    highScoresCount: highScores.value.length
+  })
 })
 </script>
 
@@ -562,6 +591,7 @@ onMounted(() => {
 </template>
 
 <style>
+
 @import './css/global.css';
 @import './css/variables.css';
 @import './css/navigation.css';
@@ -572,6 +602,5 @@ onMounted(() => {
 @import './css/leaderboard.css';
 @import './css/footer.css';
 @import './css/responsive.css';
-
 
 </style>
