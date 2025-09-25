@@ -153,10 +153,16 @@ const loadInitialData = async () => {
       scoresStatus: scoresResponse.status
     })
 
+    // Check if both responses are successful to determine backend availability
+    const questionsSuccess = questionsResponse.status === 'fulfilled'
+    const scoresSuccess = scoresResponse.status === 'fulfilled'
+
+    // Backend is only available if BOTH questions and scores load successfully
+    backendAvailable.value = questionsSuccess && scoresSuccess
+
     // Handle questions response
-    if (questionsResponse.status === 'fulfilled') {
+    if (questionsSuccess) {
       questions.value = questionsResponse.value.data
-      backendAvailable.value = true
       console.log('Questions loaded successfully:', questions.value.length, 'questions')
     } else {
       console.error('Failed to load questions:', questionsResponse.reason)
@@ -177,12 +183,11 @@ const loadInitialData = async () => {
           { id: 'q11', question: '165', correctAnswer: '170', choices: ['160', '170', '150'] },
           { id: 'q12', question: '999', correctAnswer: '1000', choices: ['990', '1000', '909'] }
       ]
-      backendAvailable.value = false
       message.value = 'Running in offline mode with sample questions.'
     }
 
     // Handle scores response (optional)
-    if (scoresResponse.status === 'fulfilled') {
+    if (scoresSuccess) {
       highScores.value = scoresResponse.value.data
       console.log('High scores loaded successfully:', highScores.value.length, 'entries')
     } else {
