@@ -2,13 +2,41 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
+// ================================
+// CONFIGURATION
+// ================================
 const API_URL_SCORES = 'https://math-worksheet-backend.vercel.app/api/scores'
 const API_URL_QUESTIONS = 'https://math-worksheet-backend.vercel.app/api/questions'
+const IS_DEVELOPMENT = import.meta.env.DEV
+const RATE_LIMIT_MS = 10000 // 10 seconds between API calls
 
 // ================================
-// REACTIVE STATE
+// FALLBACK DATA (OFFLINE MODE)
 // ================================
-// Core application data
+const FALLBACK_QUESTIONS = [
+  { id: 'q1', question: '17', correctAnswer: '20', choices: ['10', '20', '17'] },
+  { id: 'q2', question: '75', correctAnswer: '80', choices: ['70', '80', '75'] },
+  { id: 'q3', question: '64', correctAnswer: '60', choices: ['64', '70', '60'] },
+  { id: 'q4', question: '98', correctAnswer: '100', choices: ['80', '100', '98'] },
+  { id: 'q5', question: '94', correctAnswer: '90', choices: ['100', '94', '90'] },
+  { id: 'q6', question: '445', correctAnswer: '450', choices: ['450', '440', '500'] },
+  { id: 'q7', question: '45', correctAnswer: '50', choices: ['50', '45', '40'] },
+  { id: 'q8', question: '19', correctAnswer: '20', choices: ['20', '10', '19'] },
+  { id: 'q9', question: '0', correctAnswer: '0', choices: ['10', '1', '0'] },
+  { id: 'q10', question: '199', correctAnswer: '200', choices: ['190', '100', '200'] },
+  { id: 'q11', question: '165', correctAnswer: '170', choices: ['160', '170', '150'] },
+  { id: 'q12', question: '999', correctAnswer: '1000', choices: ['990', '1000', '909'] }
+]
+
+const FALLBACK_HIGH_SCORES = [
+  { name: "Alice", score: 5, date: "2024-01-15" },
+  { name: "Bob", score: 4, date: "2024-01-14" },
+  { name: "Charlie", score: 3, date: "2024-01-13" }
+]
+
+// ================================
+// REACTIVE STATE - CORE DATA
+// ================================
 const questions = ref([])
 const userAnswers = ref({})
 const userName = ref('')
@@ -16,194 +44,173 @@ const score = ref(null)
 const message = ref('')
 const highScores = ref([])
 
-// Application states
+// ================================
+// REACTIVE STATE - APPLICATION STATUS
+// ================================
 const isLoading = ref(false)
 const isSubmitting = ref(false)
 const dataLoaded = ref(false)
 const backendAvailable = ref(true)
 const criticalError = ref(false)
 
-// Security and activation
+// ================================
+// REACTIVE STATE - SECURITY & ACTIVATION
+// ================================
 const hasRealUser = ref(false)
 const quizStarted = ref(false)
-const honeypot = ref('')
+const honeypot = ref('') // Bot detection honeypot
 
-// Rate limiting
+// ================================
+// UTILITY - LOGGING
+// ================================
+const debugLog = (...args) => {
+  if (IS_DEVELOPMENT) {
+    console.log(...args)
+  }
+}
+
+const errorLog = (...args) => {
+  if (IS_DEVELOPMENT) {
+    console.error(...args)
+  }
+}
+
+// ================================
+// UTILITY - RATE LIMITING
+// ================================
 let lastApiCall = 0
 
-// ================================
-// BOT DETECTION
-// ================================
-const isBot = () => {
-  const ua = navigator.userAgent.toLowerCase()
-
-  // Debug logging
-  console.log('Bot check - User Agent:', navigator.userAgent)
-  console.log('Bot check - webdriver:', navigator.webdriver)
-  console.log('Bot check - callPhantom:', window.callPhantom)
-  console.log('Bot check - _phantom:', window._phantom)
-
-  if (ua.includes('bot')) {
-    console.log('Bot detected: User agent contains "bot"')
+const isRateLimited = () => {
+  const now = Date.now()
+  if (now - lastApiCall < RATE_LIMIT_MS) {
+    debugLog('API call rate limited - too soon after previous call')
     return true
   }
-  if (ua.includes('crawler')) {
-    console.log('Bot detected: User agent contains "crawler"')
-    return true
-  }
-  if (ua.includes('spider')) {
-    console.log('Bot detected: User agent contains "spider"')
-    return true
-  }
-  if (ua.includes('scraper')) {
-    console.log('Bot detected: User agent contains "scraper"')
-    return true
-  }
-  if (ua.includes('headless')) {
-    console.log('Bot detected: User agent contains "headless"')
-    return true
-  }
-  if (navigator.webdriver === true) {
-    console.log('Bot detected: webdriver is active')
-    return true
-  }
-  if (window.callPhantom) {
-    console.log('Bot detected: callPhantom detected')
-    return true
-  }
-  if (window._phantom) {
-    console.log('Bot detected: _phantom detected')
-    return true
-  }
-
-  console.log('Bot check passed - legitimate user detected')
+  lastApiCall = now
   return false
 }
 
 // ================================
-// APP ACTIVATION
+// SECURITY - BOT DETECTION
+// ================================
+const isBot = () => {
+  const ua = navigator.userAgent.toLowerCase()
+
+  // Bot patterns to detect
+  const botPatterns = ['bot', 'crawler', 'spider', 'scraper', 'headless']
+
+  // Check user agent for bot patterns
+  for (const pattern of botPatterns) {
+    if (ua.includes(pattern)) {
+      debugLog(`Bot detected: User agent contains "${pattern}"`)
+      return true
+    }
+  }
+
+  // Check for automation tools
+  if (navigator.webdriver === true) {
+    debugLog('Bot detected: webdriver is active')
+    return true
+  }
+
+  if (window.callPhantom || window._phantom) {
+    debugLog('Bot detected: PhantomJS detected')
+    return true
+  }
+
+  debugLog('Bot check passed - legitimate user detected')
+  return false
+}
+
+// ================================
+// CORE FUNCTIONALITY - APP ACTIVATION
 // ================================
 const activateApp = () => {
-  console.log('Start Quiz button clicked!')
+  debugLog('Start Quiz button clicked!')
 
-  // Security checks
+  // Security validation
   if (isBot()) {
-    console.log('App activation blocked - bot detected')
+    debugLog('App activation blocked - bot detected')
     return
   }
 
   if (honeypot.value) {
-    console.log('App activation blocked - honeypot filled')
+    debugLog('App activation blocked - honeypot trap triggered')
     return
   }
 
-  // Activate application
+  // Activate quiz mode
   hasRealUser.value = true
   quizStarted.value = true
-  console.log('Quiz started - loading data')
+  debugLog('Quiz activated - loading initial data')
 
-  // Load initial data
+  // Load questions and scores
   loadInitialData()
 }
 
 // ================================
-// DATA LOADING
+// CORE FUNCTIONALITY - DATA LOADING
 // ================================
 const loadInitialData = async () => {
-  // Prevent duplicate loading
+  // Prevent duplicate API calls
   if (dataLoaded.value || isLoading.value) return
 
-  // STRICT: Must have clicked Start Quiz button
+  // Security: Ensure quiz has been properly activated
   if (!quizStarted.value) {
-    console.log('API call BLOCKED - Start Quiz not clicked yet')
+    debugLog('API call blocked - quiz not started')
     return
   }
 
-  // Security checks
-  if (isBot()) {
-    console.log('API call blocked - bot detected')
+  if (isBot() || !hasRealUser.value) {
+    debugLog('API call blocked - security check failed')
     return
   }
 
-  if (!hasRealUser.value) {
-    console.log('API call skipped - no user interaction detected')
-    return
-  }
-
-  // Rate limiting
-  const now = Date.now()
-  if (now - lastApiCall < 10000) {
-    console.log('API call rate limited - too soon after previous call')
-    return
-  }
-  lastApiCall = now
+  // Rate limiting protection
+  if (isRateLimited()) return
 
   isLoading.value = true
-  console.log('Starting to load questions and scores...')
+  debugLog('Loading questions and high scores from API...')
 
   try {
-    // Load questions and scores in parallel
+    // Attempt to load questions and scores in parallel
     const [questionsResponse, scoresResponse] = await Promise.allSettled([
       axios.get(API_URL_QUESTIONS, { timeout: 10000 }),
       axios.get(API_URL_SCORES, { timeout: 10000 })
     ])
 
-    console.log('API responses received:', {
-      questionsStatus: questionsResponse.status,
-      scoresStatus: scoresResponse.status
-    })
-
-    // Check if both responses are successful to determine backend availability
+    // Determine success status for both endpoints
     const questionsSuccess = questionsResponse.status === 'fulfilled'
     const scoresSuccess = scoresResponse.status === 'fulfilled'
 
-    // Backend is only available if BOTH questions and scores load successfully
+    debugLog('API Response Status:', { questionsSuccess, scoresSuccess })
+
+    // Backend is available only if BOTH endpoints respond successfully
     backendAvailable.value = questionsSuccess && scoresSuccess
 
-    // Handle questions response
+    // Load questions (with fallback)
     if (questionsSuccess) {
       questions.value = questionsResponse.value.data
-      console.log('Questions loaded successfully:', questions.value.length, 'questions')
+      debugLog(`Questions loaded: ${questions.value.length} items`)
     } else {
-      console.error('Failed to load questions:', questionsResponse.reason)
-      console.log('Using fallback mode with mock data')
-
-      // Fallback to mock data when backend is unavailable
-      questions.value = [
-          { id: 'q1', question: '17', correctAnswer: '20', choices: ['10', '20', '17'] },
-          { id: 'q2', question: '75', correctAnswer: '80', choices: ['70', '80', '75'] },
-          { id: 'q3', question: '64', correctAnswer: '60', choices: ['64', '70', '60'] },
-          { id: 'q4', question: '98', correctAnswer: '100', choices: ['80', '100', '98'] },
-          { id: 'q5', question: '94', correctAnswer: '90', choices: ['100', '94', '90'] },
-          { id: 'q6', question: '445', correctAnswer: '450', choices: ['450', '440', '500'] },
-          { id: 'q7', question: '45', correctAnswer: '50', choices: ['50', '45', '40'] },
-          { id: 'q8', question: '19', correctAnswer: '20', choices: ['20', '10', '19'] },
-          { id: 'q9', question: '0', correctAnswer: '0', choices: ['10', '1', '0'] },
-          { id: 'q10', question: '199', correctAnswer: '200', choices: ['190', '100', '200'] },
-          { id: 'q11', question: '165', correctAnswer: '170', choices: ['160', '170', '150'] },
-          { id: 'q12', question: '999', correctAnswer: '1000', choices: ['990', '1000', '909'] }
-      ]
+      errorLog('Questions API failed:', questionsResponse.reason)
+      questions.value = FALLBACK_QUESTIONS
       message.value = 'Running in offline mode with sample questions.'
     }
 
-    // Handle scores response (optional)
+    // Load high scores (with fallback)
     if (scoresSuccess) {
       highScores.value = scoresResponse.value.data
-      console.log('High scores loaded successfully:', highScores.value.length, 'entries')
+      debugLog(`High scores loaded: ${highScores.value.length} entries`)
     } else {
-      console.log('High scores not available, using fallback data')
-      // Fallback high scores for offline mode
-      highScores.value = [
-        { name: "Alice", score: 5, date: "2024-01-15" },
-        { name: "Bob", score: 4, date: "2024-01-14" },
-        { name: "Charlie", score: 3, date: "2024-01-13" }
-      ]
+      debugLog('High scores unavailable, using fallback data')
+      highScores.value = FALLBACK_HIGH_SCORES
     }
 
     dataLoaded.value = true
 
   } catch (error) {
-    console.error('Critical error loading data:', error)
+    errorLog('Critical error during data loading:', error)
     backendAvailable.value = false
     criticalError.value = true
     message.value = 'Service temporarily unavailable. Please refresh the page to try again.'
@@ -213,52 +220,37 @@ const loadInitialData = async () => {
 }
 
 // ================================
-// SCORE CALCULATION
+// CORE FUNCTIONALITY - SCORE SUBMISSION
 // ================================
 const calculateScore = async () => {
   // Prevent duplicate submissions
   if (isSubmitting.value) return
 
-  // STRICT: Must have started quiz first
-  if (!quizStarted.value) {
-    console.log('Submission BLOCKED - Start Quiz not clicked yet')
+  // Security validation
+  if (!quizStarted.value || isBot() || honeypot.value || !hasRealUser.value) {
+    debugLog('Score submission blocked - security check failed')
     return
   }
 
-  // Security checks
-  if (isBot()) {
-    console.log('Submission blocked - bot detected')
-    return
-  }
-
-  if (honeypot.value) {
-    console.log('Submission blocked - honeypot filled')
-    return
-  }
-
-  if (!hasRealUser.value) {
-    console.log('Submission blocked - no verified user interaction')
-    return
-  }
-
-  // Backend availability check
+  // Service availability check
   if (!backendAvailable.value) {
     message.value = 'Service is currently unavailable. Please refresh the page and try again.'
     return
   }
 
-  // Form validation
-  if (!userName.value?.trim()) {
+  // Input validation
+  const trimmedName = userName.value?.trim()
+  if (!trimmedName) {
     message.value = 'Please enter your name before submitting.'
     return
   }
 
-  const trimmedName = userName.value.trim()
   if (trimmedName.length < 2 || trimmedName.length > 50) {
     message.value = 'Name must be between 2 and 50 characters.'
     return
   }
 
+  // Completion validation
   const answeredCount = Object.keys(userAnswers.value).length
   if (answeredCount < questions.value.length) {
     message.value = `Please answer all ${questions.value.length} questions. You've answered ${answeredCount}.`
@@ -266,6 +258,7 @@ const calculateScore = async () => {
   }
 
   isSubmitting.value = true
+  debugLog('Submitting quiz answers for scoring...')
 
   try {
     const response = await axios.post(API_URL_SCORES, {
@@ -273,24 +266,25 @@ const calculateScore = async () => {
       userAnswers: userAnswers.value
     }, { timeout: 15000 })
 
+    // Process successful response
     score.value = response.data.score
     message.value = response.data.message
 
-    // Update high scores from response
+    // Update leaderboard if provided
     if (response.data.highScores) {
       highScores.value = response.data.highScores
     }
 
-    // Reset form
+    // Reset quiz for new attempt
     userAnswers.value = {}
     userName.value = ''
 
-    console.log('Score submitted successfully')
+    debugLog('Quiz completed and score submitted successfully')
 
   } catch (error) {
-    console.error('Failed to submit score:', error)
+    errorLog('Score submission failed:', error)
 
-    // Handle network/server errors
+    // Handle different error types
     if (error.code === 'ECONNABORTED' || error.response?.status >= 500) {
       backendAvailable.value = false
       criticalError.value = true
@@ -314,34 +308,18 @@ const resetWorksheet = () => {
 }
 
 const refreshHighScores = async () => {
-  // STRICT: Must have started quiz first
-  if (!quizStarted.value) {
-    console.log('High scores refresh BLOCKED - Start Quiz not clicked yet')
-    return
-  }
-
-  // Security checks
-  if (isBot()) {
-    console.log('High scores refresh blocked - bot detected')
-    return
-  }
-
-  if (!hasRealUser.value) {
-    console.log('High scores refresh blocked - no verified user interaction')
-    return
-  }
-
-  if (!backendAvailable.value) {
-    message.value = 'Service is currently unavailable. Please refresh the page to try again.'
+  // Security and state validation
+  if (!quizStarted.value || isBot() || !hasRealUser.value || !backendAvailable.value) {
+    debugLog('High scores refresh blocked - validation failed')
     return
   }
 
   try {
     const response = await axios.get(API_URL_SCORES, { timeout: 10000 })
     highScores.value = response.data
-    console.log('High scores refreshed')
+    debugLog('High scores refreshed successfully')
   } catch (error) {
-    console.error('Failed to refresh high scores:', error)
+    errorLog('Failed to refresh high scores:', error)
 
     if (error.code === 'ECONNABORTED' || error.response?.status >= 500) {
       backendAvailable.value = false
@@ -357,11 +335,10 @@ const reloadPage = () => {
 }
 
 // ================================
-// LIFECYCLE
+// COMPONENT LIFECYCLE
 // ================================
 onMounted(() => {
-  console.log('App mounted - waiting for manual activation...')
-  console.log('App in passive mode - manual activation required')
+  debugLog('Math Worksheet App initialized - waiting for user activation')
 })
 </script>
 
